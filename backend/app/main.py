@@ -120,7 +120,8 @@ allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://blecom.netlify.app",
-    "https://6a61f885a0c01716ae78744c--chic-alpaca-cc32eb.netlify.app/"
+    "https://6a61f885a0c01716ae78744c--chic-alpaca-cc32eb.netlify.app/",
+    "https://chic-alpaca-cc32eb.netlify.app/"
 ]
 if settings.FRONTEND_URL:
     allowed_origins.append(settings.FRONTEND_URL)
