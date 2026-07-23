@@ -35,7 +35,7 @@ function App() {
   const [viewMode, setViewMode] = useState('overview'); // 'overview', 'graph', 'queue', 'datalogger', 'admin', 'settings'
   const [authView, setAuthView] = useState('login'); // 'login', 'register', 'forgot-password', 'reset-password'
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
-  const [apiUrl, setApiUrl] = useState('https://ble-sensor.onrender.com');
+  const [apiUrl, setApiUrl] = useState('https://ble-sense-hac3.onrender.com');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(localStorage.getItem('sidebar_collapsed') === 'true');
 
   const toggleSidebar = () => {
