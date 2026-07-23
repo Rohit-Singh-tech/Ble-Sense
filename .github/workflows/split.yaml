@@ -1,0 +1,33 @@
+name: Split Services
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Git Config
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Push Backend Service
+        run: |
+          git subtree split --prefix=backend -b backend-temp
+          git push origin backend-temp:backend --force
+
+      - name: Push Web Dashboard
+        run: |
+          git subtree split --prefix=web-dashboard -b frontend-temp
+          git push origin frontend-temp:frontend --force
