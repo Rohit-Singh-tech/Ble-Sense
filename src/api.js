@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://ble-sensor.onrender.com',//'http://localhost:8000',//'https://boxing-assembled-fell-expected.trycloudflare.com',//'http://localhost:8000',//
+  baseURL: 'https://ble-sense-hac3.onrender.com',//'http://localhost:8000',//'https://boxing-assembled-fell-expected.trycloudflare.com',//'http://localhost:8000',//
   // timeout: 15000,
 });
 
