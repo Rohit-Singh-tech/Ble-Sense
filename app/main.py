@@ -49,50 +49,6 @@ async def lifespan(app: FastAPI):
         # Seed default bovine tags in TagRegistry
         from app.models.registry import TagRegistry
         if db.query(TagRegistry).count() == 0:
-            default_tags = [
-                TagRegistry(
-                    device_id="11",
-                    name="Bovine #11",
-                    breed="Murrah Buffalo",
-                    location="Barn Sector A",
-                    weight="480 kg",
-                    notes="Lactation study subject A"
-                ),
-                TagRegistry(
-                    device_id="12",
-                    name="Bovine #12",
-                    breed="Holstein Cow",
-                    location="Barn Sector B",
-                    weight="620 kg",
-                    notes="Milk yield telemetry group 1"
-                ),
-                TagRegistry(
-                    device_id="16",
-                    name="Bovine #16",
-                    breed="Jersey Cow",
-                    location="Barn Sector B",
-                    weight="510 kg",
-                    notes="High fat content test cow"
-                ),
-                TagRegistry(
-                    device_id="19",
-                    name="Bovine #19",
-                    breed="Sahiwal Cow",
-                    location="Barn Sector A",
-                    weight="430 kg",
-                    notes="Native heat tolerance study"
-                ),
-                TagRegistry(
-                    device_id="20",
-                    name="Bovine #20",
-                    breed="Nili-Ravi Buffalo",
-                    location="Pasture Sector C",
-                    weight="550 kg",
-                    notes="Grazing behavior tracking collar"
-                ),
-            ]
-            db.add_all(default_tags)
-            db.commit()
             print("🐃 Tag Registry Seeded with 5 default entries successfully.")
     except Exception as e:
         print(f"❌ Failed to seed database: {e}")
