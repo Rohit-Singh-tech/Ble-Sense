@@ -45,11 +45,6 @@ async def lifespan(app: FastAPI):
             print("="*58 + "\n")
         else:
             print(f"👤 Admin user '{admin.username}' ({admin.email}) already exists in the database.")
-            
-        # Seed default bovine tags in TagRegistry
-        from app.models.registry import TagRegistry
-        if db.query(TagRegistry).count() == 0:
-            print("🐃 Tag Registry Seeded with 5 default entries successfully.")
     except Exception as e:
         print(f"❌ Failed to seed database: {e}")
     finally:
@@ -75,8 +70,9 @@ app = FastAPI(
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://blecom.netlify.app",
-    "https://blesense.netlify.app"
+   
+    "https://blesense.netlify.app",
+     "https://blecom.netlify.app",
 ]
 if settings.FRONTEND_URL:
     allowed_origins.append(settings.FRONTEND_URL)

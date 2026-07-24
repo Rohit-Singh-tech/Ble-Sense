@@ -1,24 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../api';
 
-const DEFAULT_BOVINE_TAGS = {
-  "11": { name: "Bovine #11", breed: "Murrah Buffalo", location: "Barn Sector A", weight: "480 kg", notes: "Lactation study subject A" },
-  "42": { name: "Bovine #42", breed: "Holstein Cow", location: "Barn Sector B", weight: "620 kg", notes: "Milk yield telemetry group 1" },
-  "89": { name: "Bovine #89", breed: "Jersey Cow", location: "Barn Sector B", weight: "510 kg", notes: "High fat content test cow" },
-  "93": { name: "Bovine #93", breed: "Sahiwal Cow", location: "Barn Sector A", weight: "430 kg", notes: "Native heat tolerance study" },
-  "248": { name: "Bovine #248", breed: "Nili-Ravi Buffalo", location: "Pasture Sector C", weight: "550 kg", notes: "Grazing behavior tracking collar" }
-};
-
 const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
   const [activeTab, setActiveTab] = useState('users'); // 'users', 'tags'
   const [allUsers, setAllUsers] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
 
   // Bovine Registry State
-  const [bovineTags, setBovineTags] = useState(() => {
-    const saved = localStorage.getItem('bovine_tags');
-    return saved ? JSON.parse(saved) : DEFAULT_BOVINE_TAGS;
-  });
+  const [bovineTags, setBovineTags] = useState(() => ({}));
   const [editingKey, setEditingKey] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', breed: '', location: '', weight: '', notes: '' });
 
@@ -94,7 +83,6 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
   const handleSaveBovine = (key) => {
     const updated = { ...bovineTags, [key]: { ...editForm } };
     setBovineTags(updated);
-    localStorage.setItem('bovine_tags', JSON.stringify(updated));
     setEditingKey(null);
     showNotification('success', `Subject tag #${key} updated successfully.`);
   };
@@ -127,7 +115,6 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
     };
 
     setBovineTags(updated);
-    localStorage.setItem('bovine_tags', JSON.stringify(updated));
     setNewDeviceForm({ id: '', name: '', breed: '', location: '', weight: '', notes: '' });
     showNotification('success', `Device ID #${devId} added to registry.`);
   };

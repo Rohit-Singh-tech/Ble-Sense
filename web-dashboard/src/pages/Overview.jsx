@@ -273,14 +273,7 @@ const Overview = ({
                         {pkt.type === 'Ammonia Sensor' && `Ammonia: ${pkt.displayData?.ammonia} ppm`}
                         {pkt.type === 'DataLogger' && (() => {
                           try {
-                            const saved = localStorage.getItem('bovine_tags');
-                            const tags = saved ? JSON.parse(saved) : {
-                              "11": { name: "Bovine #11", breed: "Murrah Buffalo" },
-                              "42": { name: "Bovine #42", breed: "Holstein Cow" },
-                              "89": { name: "Bovine #89", breed: "Jersey Cow" },
-                              "93": { name: "Bovine #93", breed: "Sahiwal Cow" },
-                              "248": { name: "Bovine #248", breed: "Nili-Ravi Buffalo" }
-                            };
+                            const tags = {};
                             const bovine = tags[pkt.displayData?.deviceId] || { name: `Tag #${pkt.displayData?.deviceId}`, breed: "Unknown" };
                             return `${bovine.name} (${bovine.breed}) | Sequence #${pkt.displayData?.packetId}`;
                           } catch (e) {
