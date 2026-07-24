@@ -83,8 +83,8 @@ async def lifespan(app: FastAPI):
                     notes="Native heat tolerance study"
                 ),
                 TagRegistry(
-                    device_id="18",
-                    name="Bovine #18",
+                    device_id="20",
+                    name="Bovine #20",
                     breed="Nili-Ravi Buffalo",
                     location="Pasture Sector C",
                     weight="550 kg",
