@@ -19,12 +19,12 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "BLE Sense Ecosystem"
 
     # Default Admin Config
-    DEFAULT_ADMIN_USERNAME: str = "saurabh"
-    DEFAULT_ADMIN_EMAIL: EmailStr = "thedev.saurabh@gmail.com"
-    DEFAULT_ADMIN_PASSWORD: str = "AdminChangeMe123!"
+    DEFAULT_ADMIN_USERNAME: str = "Rohit"
+    DEFAULT_ADMIN_EMAIL: EmailStr = "rohitranjan9798490472@gmail.com"
+    DEFAULT_ADMIN_PASSWORD: str = "Rohit@123"
 
     # URLs
-    FRONTEND_URL: str = "https://blecom.netlify.app/"
+    FRONTEND_URL: str = "https://blesense.netlify.app"
 
     # Pydantic Settings Configuration
     model_config = SettingsConfigDict(
