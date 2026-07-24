@@ -59,32 +59,32 @@ async def lifespan(app: FastAPI):
                     notes="Lactation study subject A"
                 ),
                 TagRegistry(
-                    device_id="42",
-                    name="Bovine #42",
+                    device_id="12",
+                    name="Bovine #12",
                     breed="Holstein Cow",
                     location="Barn Sector B",
                     weight="620 kg",
                     notes="Milk yield telemetry group 1"
                 ),
                 TagRegistry(
-                    device_id="89",
-                    name="Bovine #89",
+                    device_id="16",
+                    name="Bovine #16",
                     breed="Jersey Cow",
                     location="Barn Sector B",
                     weight="510 kg",
                     notes="High fat content test cow"
                 ),
                 TagRegistry(
-                    device_id="93",
-                    name="Bovine #93",
+                    device_id="19",
+                    name="Bovine #19",
                     breed="Sahiwal Cow",
                     location="Barn Sector A",
                     weight="430 kg",
                     notes="Native heat tolerance study"
                 ),
                 TagRegistry(
-                    device_id="248",
-                    name="Bovine #248",
+                    device_id="18",
+                    name="Bovine #18",
                     breed="Nili-Ravi Buffalo",
                     location="Pasture Sector C",
                     weight="550 kg",
