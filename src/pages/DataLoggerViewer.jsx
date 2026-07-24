@@ -191,14 +191,7 @@ const DataLoggerViewer = ({
 
   const resolveBovineTag = (deviceId) => {
     try {
-      const saved = localStorage.getItem('bovine_tags');
-      const tags = saved ? JSON.parse(saved) : {
-        "11": { name: "Bovine #11", breed: "Murrah Buffalo", location: "Barn Sector A", weight: "480 kg", notes: "Lactation study subject A" },
-        "42": { name: "Bovine #42", breed: "Holstein Cow", location: "Barn Sector B", weight: "620 kg", notes: "Milk yield telemetry group 1" },
-        "89": { name: "Bovine #89", breed: "Jersey Cow", location: "Barn Sector B", weight: "510 kg", notes: "High fat content test cow" },
-        "93": { name: "Bovine #93", breed: "Sahiwal Cow", location: "Barn Sector A", weight: "430 kg", notes: "Native heat tolerance study" },
-        "248": { name: "Bovine #248", breed: "Nili-Ravi Buffalo", location: "Pasture Sector C", weight: "550 kg", notes: "Grazing behavior tracking collar" }
-      };
+      const tags = {};
       return tags[deviceId] || { name: `Tag #${deviceId}`, breed: "Unknown Subject", location: "Unknown Location", weight: "--", notes: "No registration" };
     } catch (e) {
       return { name: `Tag #${deviceId}`, breed: "Unknown Subject", location: "Unknown Location", weight: "--", notes: "" };
