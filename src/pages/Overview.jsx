@@ -32,7 +32,8 @@ const Overview = ({
   setStartTime,
   endTime,
   setEndTime,
-  deviceIdsList = []
+  deviceIdsList = [],
+  tagRegistry = {}
 }) => {
   // Progress Modal States
   const [modalOpen, setModalOpen] = useState(false);
@@ -170,9 +171,13 @@ const Overview = ({
                     style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none' }}
                   >
                     <option value="All">All Devices</option>
-                    {deviceIdsList.map(id => (
-                      <option key={id} value={id}>Device #{id}</option>
-                    ))}
+                    {deviceIdsList.map(id => {
+                      const tag = tagRegistry[id];
+                      const label = tag ? `Device #${id} (${tag.name})` : `Device #${id}`;
+                      return (
+                        <option key={id} value={id}>{label}</option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -272,13 +277,12 @@ const Overview = ({
                         {pkt.type === 'Lux Sensor' && `Illuminance: ${pkt.displayData?.lux} lx`}
                         {pkt.type === 'Ammonia Sensor' && `Ammonia: ${pkt.displayData?.ammonia} ppm`}
                         {pkt.type === 'DataLogger' && (() => {
-                          try {
-                            const tags = {};
-                            const bovine = tags[pkt.displayData?.deviceId] || { name: `Tag #${pkt.displayData?.deviceId}`, breed: "Unknown" };
-                            return `${bovine.name} (${bovine.breed}) | Sequence #${pkt.displayData?.packetId}`;
-                          } catch (e) {
-                            return `Device ID: ${pkt.displayData?.deviceId} | Sequence #${pkt.displayData?.packetId}`;
+                          const deviceId = pkt.displayData?.deviceId;
+                          const tag = tagRegistry[deviceId];
+                          if (tag) {
+                            return `${tag.name} (${tag.breed}) | Sequence #${pkt.displayData?.packetId}`;
                           }
+                          return `Device #${deviceId} | Sequence #${pkt.displayData?.packetId}`;
                         })()}
                         {pkt.type === 'Unknown' && `Raw Data Payload Ingested`}
                       </td>

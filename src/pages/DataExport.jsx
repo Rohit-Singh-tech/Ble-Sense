@@ -10,7 +10,7 @@ const DownloadIcon = () => (
   </svg>
 );
 
-const DataExport = ({ deviceIdsList = [], showNotification }) => {
+const DataExport = ({ deviceIdsList = [], tagRegistry = {}, showNotification }) => {
   const [selectedDeviceId, setSelectedDeviceId] = useState('All');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -147,9 +147,13 @@ const DataExport = ({ deviceIdsList = [], showNotification }) => {
               }}
             >
               <option value="All">All Registered Device Nodes</option>
-              {deviceIdsList.map(id => (
-                <option key={id} value={id}>Device Tag #{id}</option>
-              ))}
+              {deviceIdsList.map(id => {
+                const tag = tagRegistry[id];
+                const label = tag ? `Device #${id} (${tag.name})` : `Device #${id}`;
+                return (
+                  <option key={id} value={id}>{label}</option>
+                );
+              })}
             </select>
           </div>
 
