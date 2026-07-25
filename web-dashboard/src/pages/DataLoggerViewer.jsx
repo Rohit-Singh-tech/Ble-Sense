@@ -34,7 +34,8 @@ const DataLoggerViewer = ({
   setStartTime,
   endTime,
   setEndTime,
-  deviceIdsList = []
+  deviceIdsList = [],
+  tagRegistry = {}
 }) => {
   const [activePacketWithPoints, setActivePacketWithPoints] = useState(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
@@ -190,12 +191,17 @@ const DataLoggerViewer = ({
   }
 
   const resolveBovineTag = (deviceId) => {
-    try {
-      const tags = {};
-      return tags[deviceId] || { name: `Tag #${deviceId}`, breed: "Unknown Subject", location: "Unknown Location", weight: "--", notes: "No registration" };
-    } catch (e) {
-      return { name: `Tag #${deviceId}`, breed: "Unknown Subject", location: "Unknown Location", weight: "--", notes: "" };
+    const tag = tagRegistry[deviceId];
+    if (tag) {
+      return { 
+        name: tag.name, 
+        breed: tag.breed || "Unknown Subject", 
+        location: tag.location || "Unknown Location", 
+        weight: tag.weight || "--", 
+        notes: tag.notes || "No registration" 
+      };
     }
+    return { name: `Tag #${deviceId}`, breed: "Unknown Subject", location: "Unknown Location", weight: "--", notes: "Not registered" };
   };
 
   const activeBovine = activeDlPacket ? resolveBovineTag(activeDlPacket.displayData?.deviceId) : null;
@@ -218,9 +224,13 @@ const DataLoggerViewer = ({
               style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', width: '100%', outline: 'none' }}
             >
               <option value="All">All Devices</option>
-              {deviceIdsList.map(id => (
-                <option key={id} value={id}>Device #{id}</option>
-              ))}
+              {deviceIdsList.map(id => {
+                const tag = tagRegistry[id];
+                const label = tag ? `Device #${id} (${tag.name})` : `Device #${id}`;
+                return (
+                  <option key={id} value={id}>{label}</option>
+                );
+              })}
             </select>
           </div>
 

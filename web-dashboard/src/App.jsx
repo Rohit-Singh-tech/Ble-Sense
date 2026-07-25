@@ -87,6 +87,9 @@ function App() {
 
   // Shared Device ID list fetched from DB
   const [deviceIdsList, setDeviceIdsList] = useState([]);
+
+  // Tag Registry State
+  const [tagRegistry, setTagRegistry] = useState({});
   
   // Notification Toast Banner State
   const [notification, setNotification] = useState(null);
@@ -363,6 +366,26 @@ function App() {
     }
   };
 
+  const fetchTagRegistry = async () => {
+    if (!token) return;
+    try {
+      const response = await api.get('/api/registry');
+      const tagMap = {};
+      response.data.forEach(tag => {
+        tagMap[tag.device_id] = {
+          name: tag.name,
+          breed: tag.breed || '',
+          location: tag.location || '',
+          weight: tag.weight || '',
+          notes: tag.notes || ''
+        };
+      });
+      setTagRegistry(tagMap);
+    } catch (error) {
+      console.error("Error fetching tag registry:", error);
+    }
+  };
+
   const fetchPacketsRef = useRef(fetchPackets);
   const fetchRawPacketsRef = useRef(fetchRawPackets);
 
@@ -433,12 +456,13 @@ function App() {
     apiUrl
   ]);
 
-  // Fetch unique device IDs on view mode load
+  // Fetch unique device IDs and tag registry on app load or token change
   useEffect(() => {
-    if (token && (viewMode === 'overview' || viewMode === 'datalogger')) {
+    if (token) {
       fetchDeviceIds();
+      fetchTagRegistry();
     }
-  }, [token, viewMode, apiUrl]);
+  }, [token, apiUrl]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -624,6 +648,7 @@ function App() {
               endTime={overviewEndTime}
               setEndTime={setOverviewEndTime}
               deviceIdsList={deviceIdsList}
+              tagRegistry={tagRegistry}
             />
           )}
 
@@ -680,12 +705,14 @@ function App() {
               endTime={inspectorEndTime}
               setEndTime={setInspectorEndTime}
               deviceIdsList={deviceIdsList}
+              tagRegistry={tagRegistry}
             />
           )}
 
           {viewMode === 'export' && (
             <DataExport 
               deviceIdsList={deviceIdsList}
+              tagRegistry={tagRegistry}
               showNotification={showNotification}
             />
           )}
