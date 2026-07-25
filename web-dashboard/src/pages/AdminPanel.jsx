@@ -40,6 +40,26 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
       setAdminLoading(false);
     }
   };
+
+  const fetchTagRegistry = async () => {
+    if (!token || !user?.is_superuser) return;
+    try {
+      const response = await api.get('/api/registry');
+      const tagMap = {};
+      response.data.forEach(tag => {
+        tagMap[tag.device_id] = {
+          name: tag.name,
+          breed: tag.breed || '',
+          location: tag.location || '',
+          weight: tag.weight || '',
+          notes: tag.notes || ''
+        };
+      });
+      setBovineTags(tagMap);
+    } catch (error) {
+      showNotification('error', 'Failed to fetch tag registry from database.');
+    }
+  };
   const handlePromoteAdmin = async (userId) => {
     try {
       await api.post(`/api/users/${userId}/promote`, {});
@@ -80,11 +100,44 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
     }
   };
 
-  const handleSaveBovine = (key) => {
-    const updated = { ...bovineTags, [key]: { ...editForm } };
-    setBovineTags(updated);
-    setEditingKey(null);
-    showNotification('success', `Subject tag #${key} updated successfully.`);
+  const handleSaveBovine = async (key) => {
+    try {
+      // Send update/create request to backend
+      await api.post('/api/registry', {
+        device_id: key,
+        name: editForm.name,
+        breed: editForm.breed,
+        location: editForm.location,
+        weight: editForm.weight,
+        notes: editForm.notes
+      });
+      
+      // Update local state after successful save
+      const updated = { ...bovineTags, [key]: { ...editForm } };
+      setBovineTags(updated);
+      setEditingKey(null);
+      showNotification('success', `Subject tag #${key} updated successfully and saved to database.`);
+    } catch (error) {
+      const errorDetail = error.response?.data?.detail || 'Failed to save tag registry changes.';
+      showNotification('error', errorDetail);
+    }
+  };
+
+  const handleDeleteTag = async (deviceId) => {
+    if (!window.confirm(`Are you sure you want to delete Device ID #${deviceId} from the registry?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/registry/${deviceId}`);
+      const updated = { ...bovineTags };
+      delete updated[deviceId];
+      setBovineTags(updated);
+      showNotification('success', `Device ID #${deviceId} has been removed from registry.`);
+    } catch (error) {
+      const errorDetail = error.response?.data?.detail || 'Failed to delete tag registry entry.';
+      showNotification('error', errorDetail);
+    }
   };
 
   const startEditing = (key, data) => {
@@ -92,7 +145,7 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
     setEditForm({ ...data });
   };
 
-  const handleAddNewDevice = () => {
+  const handleAddNewDevice = async () => {
     const devId = newDeviceForm.id.trim();
     if (!devId) {
       showNotification('error', 'Device ID is required.');
@@ -103,20 +156,36 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
       return;
     }
 
-    const updated = {
-      ...bovineTags,
-      [devId]: {
+    try {
+      // Send create request to backend
+      await api.post('/api/registry', {
+        device_id: devId,
         name: newDeviceForm.name.trim() || `Bovine #${devId}`,
         breed: newDeviceForm.breed.trim() || 'Unknown',
         location: newDeviceForm.location.trim() || 'Unknown',
         weight: newDeviceForm.weight.trim() || '--',
         notes: newDeviceForm.notes.trim() || ''
-      }
-    };
+      });
 
-    setBovineTags(updated);
-    setNewDeviceForm({ id: '', name: '', breed: '', location: '', weight: '', notes: '' });
-    showNotification('success', `Device ID #${devId} added to registry.`);
+      // Update local state after successful save
+      const updated = {
+        ...bovineTags,
+        [devId]: {
+          name: newDeviceForm.name.trim() || `Bovine #${devId}`,
+          breed: newDeviceForm.breed.trim() || 'Unknown',
+          location: newDeviceForm.location.trim() || 'Unknown',
+          weight: newDeviceForm.weight.trim() || '--',
+          notes: newDeviceForm.notes.trim() || ''
+        }
+      };
+
+      setBovineTags(updated);
+      setNewDeviceForm({ id: '', name: '', breed: '', location: '', weight: '', notes: '' });
+      showNotification('success', `Device ID #${devId} added to registry and saved to database.`);
+    } catch (error) {
+      const errorDetail = error.response?.data?.detail || 'Failed to add new device to registry.';
+      showNotification('error', errorDetail);
+    }
   };
 
   // Reset page indices on filters
@@ -192,8 +261,12 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
   const totalTagPages = Math.ceil(filteredTags.length / tagsPerPage) || 1;
 
   useEffect(() => {
-    if (token && user?.is_superuser && activeTab === 'users') {
-      fetchAllUsers();
+    if (token && user?.is_superuser) {
+      if (activeTab === 'users') {
+        fetchAllUsers();
+      } else if (activeTab === 'tags') {
+        fetchTagRegistry();
+      }
     }
   }, [token, apiUrl, user, activeTab]);
 
@@ -525,7 +598,8 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
                         <td>{data.weight}</td>
                         <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{data.notes}</td>
                         <td>
-                          <button onClick={() => startEditing(key, data)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px' }}>Edit</button>
+                          <button onClick={() => startEditing(key, data)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', marginRight: '5px' }}>Edit</button>
+                          <button onClick={() => handleDeleteTag(key)} className="btn-danger" style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', margin: 0 }}>Delete</button>
                         </td>
                       </>
                     )}
