@@ -29,7 +29,7 @@ const Header = ({
     <header className="top-bar">
       <div>
         <h1 className="view-title">
-          {viewMode === 'overview' && 'Dashboard'}
+          {viewMode === 'overview' && 'Cow LiveStock Logger'}
           {viewMode === 'graph' && 'Analytics'}
           {viewMode === 'queue' && 'Queue Monitor'}
           {viewMode === 'datalogger' && 'Log Inspector'}

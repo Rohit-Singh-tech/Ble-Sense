@@ -1,11 +1,5 @@
 import React from 'react';
 
-const FlaskIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 3h12M18 3v3c0 2.2-1.8 4-4 4h-4c-2.2 0-4-1.8-4-4V3M5.5 21h13M8.5 10.5L3 21h18l-5.5-10.5" />
-  </svg>
-);
-
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
@@ -71,10 +65,11 @@ const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle 
       <div className="sidebar-header" style={{ display: 'flex', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', marginBottom: '2.25rem' }}>
         {!isCollapsed && (
           <div className="sidebar-logo" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="logo-icon">
-              <FlaskIcon />
-            </div>
-            <span className="logo-text">BLE <span className="accent">Research</span></span>
+            <img
+              src="/IIT-Ropar-AWaDH.png"
+              alt="IIT Ropar AwaDH"
+              style={{ width: '170px', height: 'auto', objectFit: 'contain', display: 'block' }}
+            />
           </div>
         )}
         <button 
@@ -99,7 +94,7 @@ const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle 
         </button>
       </div>
 
-      {user && (
+      {/* {user && (
         <div className="sidebar-profile" style={{ padding: isCollapsed ? '0' : '14px', justifyContent: isCollapsed ? 'center' : 'flex-start' }} title={`${user.username} (${user.is_superuser ? 'Administrator' : 'Operator'})`}>
           <div className="avatar">
             <UserIcon />
@@ -111,7 +106,7 @@ const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle 
             </div>
           )}
         </div>
-      )}
+      )} */}
       <nav className="sidebar-nav">
         <div
           className={`nav-item ${viewMode === 'overview' ? 'active' : ''}`}
