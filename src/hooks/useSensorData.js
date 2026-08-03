@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api';
 
+const normalizeDateTimeFilter = (value) => {
+  if (!value) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+    return undefined;
+  }
+  return value;
+};
+
 export function useSensorData({
   token,
   viewMode,
@@ -51,8 +59,8 @@ export function useSensorData({
           appId: selectedAppId,
           type: activeCategory !== 'All' ? activeCategory : undefined,
           deviceId: overviewDeviceId !== 'All' ? overviewDeviceId : undefined,
-          startTime: overviewStartTime && !isNaN(Date.parse(overviewStartTime)) ? new Date(overviewStartTime).toISOString() : undefined,
-          endTime: overviewEndTime && !isNaN(Date.parse(overviewEndTime)) ? new Date(overviewEndTime).toISOString() : undefined,
+          startTime: normalizeDateTimeFilter(overviewStartTime),
+          endTime: normalizeDateTimeFilter(overviewEndTime),
           search: overviewSearch || undefined,
           sortField: overviewSortField,
           sortOrder: overviewSortOrder
@@ -97,8 +105,8 @@ export function useSensorData({
           page: inspectorPage,
           limit: inspectorLimit,
           deviceId: inspectorDeviceId !== 'All' ? inspectorDeviceId : undefined,
-          startTime: inspectorStartTime && !isNaN(Date.parse(inspectorStartTime)) ? new Date(inspectorStartTime).toISOString() : undefined,
-          endTime: inspectorEndTime && !isNaN(Date.parse(inspectorEndTime)) ? new Date(inspectorEndTime).toISOString() : undefined,
+          startTime: normalizeDateTimeFilter(inspectorStartTime),
+          endTime: normalizeDateTimeFilter(inspectorEndTime),
           sortOrder: inspectorSortOrder
         };
 
