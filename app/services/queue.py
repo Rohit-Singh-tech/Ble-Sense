@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from app.database import SessionLocal
@@ -8,6 +9,15 @@ from app.models.packet import SensorPacket
 
 # Global asynchronous in-memory queue
 packet_queue = asyncio.Queue()
+
+
+def _build_datalogger_packet_time(base_timestamp: datetime, last_header: Optional[DataLoggerHeader], packet_index: int = 0) -> datetime:
+    """Anchor datalogger packet timing to the current ingestion time and step back by 8 seconds for each subsequent packet."""
+    anchor_time = base_timestamp
+    if last_header is not None and last_header.timestamp is not None:
+        anchor_time = max(base_timestamp, last_header.timestamp)
+    return anchor_time - timedelta(seconds=packet_index * 8)
+
 
 async def packet_worker():
     """
@@ -52,6 +62,8 @@ async def packet_worker():
                         except Exception:
                             base_timestamp = datetime.now(timezone.utc)
 
+                    datalogger_timestamp = datetime.now(timezone.utc)
+
                     # Extract inner data wrapper
                     data_wrapper = pkt.get("data", pkt) if isinstance(pkt, dict) else {}
                     inner_data = data_wrapper.get("data", data_wrapper) if isinstance(data_wrapper, dict) else {}
@@ -95,11 +107,11 @@ async def packet_worker():
                             ).order_by(DataLoggerHeader.timestamp.desc()).first()
 
                             if last_header:
-                                packet_time = last_header.timestamp + timedelta(seconds=8)
-                                pkt_idx = last_header.packet_id_num + 1
+                                packet_time = _build_datalogger_packet_time(datalogger_timestamp, last_header, k)
+                                pkt_idx = last_header.packet_id_num + 1 + k
                             else:
                                 # Fallback to back-calculated offset from base timestamp
-                                packet_time = base_timestamp - timedelta(seconds=(N - 1 - k) * 8)
+                                packet_time = datalogger_timestamp - timedelta(seconds=(N - 1 - k) * 8)
                                 # Current packet (bytes 241, 242) -> little-endian
                                 pkt_idx = int(chunk[-4], 16) * 256 + int(chunk[-5], 16)
 
@@ -175,10 +187,10 @@ async def packet_worker():
                         ).order_by(DataLoggerHeader.timestamp.desc()).first()
 
                         if last_header:
-                            packet_time = last_header.timestamp + timedelta(seconds=8)
+                            packet_time = _build_datalogger_packet_time(datalogger_timestamp, last_header)
                             packet_id_num = last_header.packet_id_num + 1
                         else:
-                            packet_time = base_timestamp
+                            packet_time = datalogger_timestamp
                             packet_id_num = inner_data.get("packetId", 0)
 
                         total_packets = inner_data.get("totalPackets", 0)
