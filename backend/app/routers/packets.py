@@ -13,6 +13,15 @@ from app.services.queue import packet_queue
 
 router = APIRouter(prefix="/packets", tags=["Sensor Packets"])
 
+
+def _build_datalogger_packet_time(base_timestamp: datetime, last_header: Optional[DataLoggerHeader], packet_index: int = 0) -> datetime:
+    """Anchor datalogger packet timing to the current ingestion time and step back by 8 seconds for each subsequent packet."""
+    anchor_time = base_timestamp
+    if last_header is not None and last_header.timestamp is not None:
+        anchor_time = max(base_timestamp, last_header.timestamp)
+    return anchor_time - timedelta(seconds=packet_index * 8)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], db: Session = Depends(get_db)):
     """
@@ -57,6 +66,8 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
                 except Exception:
                     base_timestamp = datetime.now(timezone.utc)
 
+            datalogger_timestamp = datetime.now(timezone.utc)
+
             # Extract inner data wrapper
             data_wrapper = pkt.get("data", pkt)
             inner_data = data_wrapper.get("data", data_wrapper) if isinstance(data_wrapper, dict) else {}
@@ -99,10 +110,10 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
                     ).order_by(DataLoggerHeader.timestamp.desc()).first()
 
                     if last_header:
-                        packet_time = last_header.timestamp + timedelta(seconds=8)
-                        pkt_idx = last_header.packet_id_num + 1
+                        packet_time = _build_datalogger_packet_time(datalogger_timestamp, last_header, k)
+                        pkt_idx = last_header.packet_id_num + 1 + k
                     else:
-                        packet_time = base_timestamp - timedelta(seconds=(N - 1 - k) * 8)
+                        packet_time = datalogger_timestamp - timedelta(seconds=(N - 1 - k) * 8)
                         pkt_idx = int(chunk[-4], 16) * 256 + int(chunk[-5], 16)
 
                     tot_pkts = int(chunk[-2], 16) * 256 + int(chunk[-3], 16)
@@ -178,10 +189,10 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
                 ).order_by(DataLoggerHeader.timestamp.desc()).first()
 
                 if last_header:
-                    packet_time = last_header.timestamp + timedelta(seconds=8)
+                    packet_time = _build_datalogger_packet_time(datalogger_timestamp, last_header)
                     packet_id_num = last_header.packet_id_num + 1
                 else:
-                    packet_time = base_timestamp
+                    packet_time = datalogger_timestamp
                     packet_id_num = inner_data.get("packetId", 0)
 
                 total_packets = inner_data.get("totalPackets", 0)
