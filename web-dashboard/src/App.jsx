@@ -545,12 +545,12 @@ function App() {
           <div className="auth-card glassmorphism">
             <div className="auth-logo">
                 <img
-                  src="/annamai.webp"
+                  src="/annamai.png"
                   alt="IIT Ropar Annam.Ai"
                   style={{ width: '110px', height: 'auto', objectFit: 'contain', display: 'block' }}
                 />
               
-              <h2>IIT Ropar AwaDH</h2>
+              <h2>IIT Ropar Annam.Ai</h2>
             </div>
             
             {authView === 'login' && (
