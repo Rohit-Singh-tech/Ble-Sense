@@ -545,8 +545,8 @@ function App() {
           <div className="auth-card glassmorphism">
             <div className="auth-logo">
                 <img
-                  src="/iit_roparawadhicon.png"
-                  alt="IIT Ropar AwaDH"
+                  src="/annamai.webp"
+                  alt="IIT Ropar Annam.Ai"
                   style={{ width: '110px', height: 'auto', objectFit: 'contain', display: 'block' }}
                 />
               

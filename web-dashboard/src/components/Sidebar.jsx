@@ -66,8 +66,8 @@ const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle 
         {!isCollapsed && (
           <div className="sidebar-logo" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <img
-              src="/IIT-Ropar-AWaDH.png"
-              alt="IIT Ropar AwaDH"
+              src="annam.webp"
+              alt="IIT Ropar Annam.Ai"
               style={{ width: '170px', height: 'auto', objectFit: 'contain', display: 'block' }}
             />
           </div>
