@@ -36,7 +36,7 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
     processed_summary = []
 
     try:
-        for pkt in packets_list:
+        for pkt_idx_in_list, pkt in enumerate(packets_list):
             if not isinstance(pkt, dict):
                 continue
                 
@@ -89,6 +89,7 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
             # Case 1: Ingesting a raw hex stream containing one or more packets
             if sub_packets:
                 N = len(sub_packets)
+                receive_time = datetime.now(timezone.utc)
                 for k, chunk in enumerate(sub_packets):
                     # Packet ID (bytes 0..1) -> little-endian
                     pkt_idx = int(chunk[1], 16) * 256 + int(chunk[0], 16)
@@ -96,18 +97,20 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
                     # Node ID (byte 2) -> decimal string
                     dev_id = str(int(chunk[2], 16))
 
-                    # Query database for the last header of the same Device ID
-                    last_header = db.query(DataLoggerHeader).filter(
-                        DataLoggerHeader.device_id == dev_id
-                    ).order_by(DataLoggerHeader.timestamp.desc()).first()
-
-                    if last_header:
-                        packet_time = last_header.timestamp + timedelta(seconds=8)
-                    else:
-                        packet_time = base_timestamp - timedelta(seconds=(N - 1 - k) * 8)
-
                     # Total packets (bytes 243..244) -> little-endian
                     tot_pkts = int(chunk[244], 16) * 256 + int(chunk[243], 16)
+
+                    # Calculate timestamp: anchor to current receive time and go back 8 sec per packet
+                    # Total packets can be any dynamic count stored on device (e.g. 1000, 1200, 5000, etc.)
+                    ref_total = max(tot_pkts, pkt_idx)
+                    if ref_total > 0:
+                        seconds_ago = (ref_total - pkt_idx) * 8
+                    else:
+                        seconds_ago = (N - 1 - k) * 8
+
+                    packet_time = receive_time - timedelta(seconds=seconds_ago)
+                    if packet_time > receive_time:
+                        packet_time = receive_time
 
                     # Extract 80 points (bytes 3 to 242)
                     points_list = []
@@ -174,20 +177,34 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
             # Case 2: Pre-parsed DataLogger packet with points in JSON
             elif sensor_type == "DataLogger" or "points" in inner_data:
                 device_id = str(inner_data.get("deviceId", "Unknown"))
+                try:
+                    packet_id_num = int(inner_data.get("packetId", 0) or 0)
+                except (ValueError, TypeError):
+                    packet_id_num = 0
 
-                last_header = db.query(DataLoggerHeader).filter(
-                    DataLoggerHeader.device_id == device_id
-                ).order_by(DataLoggerHeader.timestamp.desc()).first()
+                try:
+                    total_packets = int(inner_data.get("totalPackets", 0) or 0)
+                except (ValueError, TypeError):
+                    total_packets = 0
 
-                if last_header:
-                    packet_time = last_header.timestamp + timedelta(seconds=8)
-                    packet_id_num = last_header.packet_id_num + 1
-                else:
-                    packet_time = base_timestamp
-                    packet_id_num = inner_data.get("packetId", 0)
-
-                total_packets = inner_data.get("totalPackets", 0)
                 points_list = inner_data.get("points", [])
+
+                receive_time = datetime.now(timezone.utc)
+
+                # Calculate timestamp: anchor to current receive time and go back 8 sec per packet
+                # Total packets can be any dynamic count stored on device (e.g. 1000, 1200, 5000, etc.)
+                ref_total = max(total_packets, packet_id_num)
+                if ref_total > 0 and packet_id_num > 0:
+                    seconds_ago = (ref_total - packet_id_num) * 8
+                    packet_time = receive_time - timedelta(seconds=seconds_ago)
+                elif len(packets_list) > 1:
+                    seconds_ago = (len(packets_list) - 1 - pkt_idx_in_list) * 8
+                    packet_time = receive_time - timedelta(seconds=seconds_ago)
+                else:
+                    packet_time = min(base_timestamp, receive_time) if timestamp_raw else receive_time
+
+                if packet_time > receive_time:
+                    packet_time = receive_time
 
                 header = DataLoggerHeader(
                     raw_packet_id=raw_packet.id,
@@ -230,17 +247,19 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
 
             # Case 3: Standard Telemetry packet
             else:
+                receive_time = datetime.now(timezone.utc)
+                packet_time = min(base_timestamp, receive_time) if timestamp_raw else receive_time
                 db_sensor = SensorPacket(
                     app_id=app_id,
                     data=pkt.get("data") if "data" in pkt else pkt,
-                    timestamp=base_timestamp
+                    timestamp=packet_time
                 )
                 db.add(db_sensor)
 
                 processed_summary.append({
                     "type": sensor_type,
                     "deviceId": inner_data.get("deviceId", "Unknown"),
-                    "timestamp": base_timestamp.isoformat()
+                    "timestamp": packet_time.isoformat()
                 })
 
         db.commit()
@@ -342,6 +361,9 @@ def get_sensor_packets(
         query = query.filter(SensorPacket.timestamp >= start_time)
     if end_time:
         query = query.filter(SensorPacket.timestamp <= end_time)
+    else:
+        # Safeguard: prevent any accidental future data from appearing on the live dashboard
+        query = query.filter(SensorPacket.timestamp <= func.now())
         
     # 5. Search filter (App ID or Device ID)
     if search:
@@ -389,4 +411,21 @@ def get_sensor_packets(
                 timestamp=p.timestamp
             ) for p in packets
         ]
+    }
+
+
+@router.post("/cleanup-future-packets")
+def cleanup_future_packets(db: Session = Depends(get_db)):
+    """
+    Utility endpoint to delete any historical records that were accidentally created
+    with future timestamps due to the previous '+8 seconds' cascading bug.
+    """
+    now = datetime.now(timezone.utc)
+    del_sensors = db.query(SensorPacket).filter(SensorPacket.timestamp > now).delete(synchronize_session=False)
+    del_headers = db.query(DataLoggerHeader).filter(DataLoggerHeader.timestamp > now).delete(synchronize_session=False)
+    db.commit()
+    return {
+        "status": "success",
+        "deleted_future_sensor_packets": del_sensors,
+        "deleted_future_datalogger_headers": del_headers
     }
