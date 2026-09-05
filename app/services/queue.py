@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from app.database import SessionLocal
@@ -9,15 +8,6 @@ from app.models.packet import SensorPacket
 
 # Global asynchronous in-memory queue
 packet_queue = asyncio.Queue()
-
-
-def _build_datalogger_packet_time(base_timestamp: datetime, last_header: Optional[DataLoggerHeader], packet_index: int = 0) -> datetime:
-    """Anchor datalogger packet timing to the current ingestion time and step back by 8 seconds for each subsequent packet."""
-    anchor_time = base_timestamp
-    if last_header is not None and last_header.timestamp is not None:
-        anchor_time = max(base_timestamp, last_header.timestamp)
-    return anchor_time - timedelta(seconds=packet_index * 8)
-
 
 async def packet_worker():
     """
@@ -62,8 +52,6 @@ async def packet_worker():
                         except Exception:
                             base_timestamp = datetime.now(timezone.utc)
 
-                    datalogger_timestamp = datetime.now(timezone.utc)
-
                     # Extract inner data wrapper
                     data_wrapper = pkt.get("data", pkt) if isinstance(pkt, dict) else {}
                     inner_data = data_wrapper.get("data", data_wrapper) if isinstance(data_wrapper, dict) else {}
@@ -91,15 +79,18 @@ async def packet_worker():
                     if len(hex_tokens) >= 246:
                         for chunk_idx in range(0, len(hex_tokens), 246):
                             chunk = hex_tokens[chunk_idx:chunk_idx+246]
-                            if len(chunk) == 246 and chunk[-1].upper() == "FE":
+                            if len(chunk) == 246:
                                 sub_packets.append(chunk)
 
                     # Case 1: Ingesting a raw hex stream containing one or more packets
                     if sub_packets:
                         N = len(sub_packets)
                         for k, chunk in enumerate(sub_packets):
-                            # Device ID (byte 0) -> decimal string
-                            dev_id = str(int(chunk[0], 16))
+                            # Packet ID (bytes 0..1) -> little-endian
+                            pkt_idx = int(chunk[1], 16) * 256 + int(chunk[0], 16)
+
+                            # Node ID (byte 2) -> decimal string
+                            dev_id = str(int(chunk[2], 16))
 
                             # Query database for the last header of the same Device ID
                             last_header = db.query(DataLoggerHeader).filter(
@@ -107,20 +98,16 @@ async def packet_worker():
                             ).order_by(DataLoggerHeader.timestamp.desc()).first()
 
                             if last_header:
-                                packet_time = _build_datalogger_packet_time(datalogger_timestamp, last_header, k)
-                                pkt_idx = last_header.packet_id_num + 1 + k
+                                packet_time = last_header.timestamp + timedelta(seconds=8)
                             else:
-                                # Fallback to back-calculated offset from base timestamp
-                                packet_time = datalogger_timestamp - timedelta(seconds=(N - 1 - k) * 8)
-                                # Current packet (bytes 241, 242) -> little-endian
-                                pkt_idx = int(chunk[-4], 16) * 256 + int(chunk[-5], 16)
+                                packet_time = base_timestamp - timedelta(seconds=(N - 1 - k) * 8)
 
-                            # Total packets (bytes 243, 244) -> little-endian
-                            tot_pkts = int(chunk[-2], 16) * 256 + int(chunk[-3], 16)
+                            # Total packets (bytes 243..244) -> little-endian
+                            tot_pkts = int(chunk[244], 16) * 256 + int(chunk[243], 16)
 
-                            # Extract 80 points (bytes 1 to 240)
+                            # Extract 80 points (bytes 3 to 242)
                             points_list = []
-                            data_tokens = chunk[1:-5]
+                            data_tokens = chunk[3:243]
                             for pt_idx in range(0, len(data_tokens), 3):
                                 rx = int(data_tokens[pt_idx], 16)
                                 ry = int(data_tokens[pt_idx+1], 16)
@@ -187,10 +174,10 @@ async def packet_worker():
                         ).order_by(DataLoggerHeader.timestamp.desc()).first()
 
                         if last_header:
-                            packet_time = _build_datalogger_packet_time(datalogger_timestamp, last_header)
+                            packet_time = last_header.timestamp + timedelta(seconds=8)
                             packet_id_num = last_header.packet_id_num + 1
                         else:
-                            packet_time = datalogger_timestamp
+                            packet_time = base_timestamp
                             packet_id_num = inner_data.get("packetId", 0)
 
                         total_packets = inner_data.get("totalPackets", 0)
