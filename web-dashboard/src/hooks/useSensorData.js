@@ -1,14 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api';
 
-const normalizeDateTimeFilter = (value) => {
-  if (!value) return undefined;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-    return undefined;
-  }
-  return value;
-};
-
 export function useSensorData({
   token,
   viewMode,
@@ -59,14 +51,14 @@ export function useSensorData({
           appId: selectedAppId,
           type: activeCategory !== 'All' ? activeCategory : undefined,
           deviceId: overviewDeviceId !== 'All' ? overviewDeviceId : undefined,
-          startTime: normalizeDateTimeFilter(overviewStartTime),
-          endTime: normalizeDateTimeFilter(overviewEndTime),
+          startTime: overviewStartTime && !isNaN(Date.parse(overviewStartTime)) ? new Date(overviewStartTime).toISOString() : undefined,
+          endTime: overviewEndTime && !isNaN(Date.parse(overviewEndTime)) ? new Date(overviewEndTime).toISOString() : new Date().toISOString(),
           search: overviewSearch || undefined,
           sortField: overviewSortField,
           sortOrder: overviewSortOrder
         };
 
-        const statsParams = { page: 1, limit: 100, appId: selectedAppId };
+        const statsParams = { page: 1, limit: 100, appId: selectedAppId, endTime: new Date().toISOString() };
 
         const [response, statsResponse] = await Promise.all([
           api.get('/api/packets', { params }),
@@ -88,12 +80,20 @@ export function useSensorData({
           else if (innerData.lux) sensorType = 'Lux Sensor';
           else if (innerData.ammonia) sensorType = 'Ammonia Sensor';
 
+          let rawTime = pkt.timestamp || payload.timestamp;
+          if (rawTime) {
+            const timeMs = new Date(rawTime).getTime();
+            if (!isNaN(timeMs) && timeMs > Date.now()) {
+              rawTime = new Date().toISOString();
+            }
+          }
+
           return {
             ...pkt,
             appId: pkt.appId || innerData.appId || payload.appId || 'Unknown',
             type: sensorType,
             displayData: innerData,
-            timestamp: pkt.timestamp || payload.timestamp
+            timestamp: rawTime
           };
         };
 
@@ -105,30 +105,40 @@ export function useSensorData({
           page: inspectorPage,
           limit: inspectorLimit,
           deviceId: inspectorDeviceId !== 'All' ? inspectorDeviceId : undefined,
-          startTime: normalizeDateTimeFilter(inspectorStartTime),
-          endTime: normalizeDateTimeFilter(inspectorEndTime),
+          startTime: inspectorStartTime && !isNaN(Date.parse(inspectorStartTime)) ? new Date(inspectorStartTime).toISOString() : undefined,
+          endTime: inspectorEndTime && !isNaN(Date.parse(inspectorEndTime)) ? new Date(inspectorEndTime).toISOString() : new Date().toISOString(),
           sortOrder: inspectorSortOrder
         };
 
         const response = await api.get('/api/packets/datalogger/processed', { params });
         const { total, records } = response.data;
 
-        const dlPackets = records.map(pkt => ({
-          id: `dl-${pkt.id}`,
-          appId: pkt.app_id || pkt.appId || 'Unknown',
-          type: 'DataLogger',
-          displayData: {
-            appId: pkt.app_id || pkt.appId,
-            deviceId: pkt.device_id,
-            packetId: pkt.packet_id_num,
-            totalPackets: pkt.total_packets,
-            rawData: pkt.raw_data,
-            points: pkt.points ? pkt.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
+        const dlPackets = records.map(pkt => {
+          let pktTime = pkt.timestamp;
+          if (pktTime) {
+            const timeMs = new Date(pktTime).getTime();
+            if (!isNaN(timeMs) && timeMs > Date.now()) {
+              pktTime = new Date().toISOString();
+            }
+          }
+
+          return {
+            id: `dl-${pkt.id}`,
+            appId: pkt.app_id || pkt.appId || 'Unknown',
+            type: 'DataLogger',
+            displayData: {
+              appId: pkt.app_id || pkt.appId,
+              deviceId: pkt.device_id,
+              packetId: pkt.packet_id_num,
+              totalPackets: pkt.total_packets,
+              rawData: pkt.raw_data,
+              points: pkt.points ? pkt.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
+              rawPacket: pkt.raw_packet
+            },
+            timestamp: pktTime,
             rawPacket: pkt.raw_packet
-          },
-          timestamp: pkt.timestamp,
-          rawPacket: pkt.raw_packet
-        }));
+          };
+        });
 
         setPackets(dlPackets);
         setInspectorTotal(total);

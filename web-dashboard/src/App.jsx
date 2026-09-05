@@ -25,14 +25,6 @@ import NotFound from './pages/NotFound';
 
 import './App.css';
 
-const normalizeDateTimeFilter = (value) => {
-  if (!value) return undefined;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-    return undefined;
-  }
-  return value;
-};
-
 function App() {
   // Authentication & Session State
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -219,8 +211,8 @@ function App() {
           appId: selectedAppId,
           type: activeCategory !== 'All' ? activeCategory : undefined,
           deviceId: overviewDeviceId !== 'All' ? overviewDeviceId : undefined,
-          startTime: normalizeDateTimeFilter(overviewStartTime),
-          endTime: normalizeDateTimeFilter(overviewEndTime),
+          startTime: overviewStartTime && !isNaN(Date.parse(overviewStartTime)) ? new Date(overviewStartTime).toISOString() : undefined,
+          endTime: overviewEndTime && !isNaN(Date.parse(overviewEndTime)) ? new Date(overviewEndTime).toISOString() : new Date().toISOString(),
           search: overviewSearch || undefined,
           sortField: overviewSortField,
           sortOrder: overviewSortOrder
@@ -230,7 +222,8 @@ function App() {
         const statsParams = {
           page: 1,
           limit: 100,
-          appId: selectedAppId
+          appId: selectedAppId,
+          endTime: new Date().toISOString()
         };
         
         const [response, statsResponse] = await Promise.all([
@@ -241,7 +234,7 @@ function App() {
         const { total, records } = response.data;
         const statsRecords = statsResponse.data.records || [];
         
-        const mappedPackets = records.map(pkt => {
+        const mapPacketData = (pkt) => {
           const payload = pkt.data || {};
           const innerData = payload.data || payload;
 
@@ -253,35 +246,25 @@ function App() {
           else if (innerData.lux) sensorType = 'Lux Sensor';
           else if (innerData.ammonia) sensorType = 'Ammonia Sensor';
 
-          return {
-            ...pkt,
-            appId: pkt.appId || innerData.appId || payload.appId || 'Unknown',
-            type: sensorType,
-            displayData: innerData,
-            timestamp: pkt.timestamp || payload.timestamp
-          };
-        });
-
-        const mappedStatsPackets = statsRecords.map(pkt => {
-          const payload = pkt.data || {};
-          const innerData = payload.data || payload;
-
-          let sensorType = 'Unknown';
-          if (innerData.type === 'DataLogger' || innerData.points || innerData.deviceId) sensorType = 'DataLogger';
-          else if (innerData.temperature && innerData.humidity) sensorType = 'SHT40';
-          else if (innerData.nitrogen || innerData.phosphorus) sensorType = 'Soil Sensor';
-          else if (innerData.co2 || innerData.pm25) sensorType = 'sen66';
-          else if (innerData.lux) sensorType = 'Lux Sensor';
-          else if (innerData.ammonia) sensorType = 'Ammonia Sensor';
+          let rawTime = pkt.timestamp || payload.timestamp;
+          if (rawTime) {
+            const timeMs = new Date(rawTime).getTime();
+            if (!isNaN(timeMs) && timeMs > Date.now()) {
+              rawTime = new Date().toISOString();
+            }
+          }
 
           return {
             ...pkt,
             appId: pkt.appId || innerData.appId || payload.appId || 'Unknown',
             type: sensorType,
             displayData: innerData,
-            timestamp: pkt.timestamp || payload.timestamp
+            timestamp: rawTime
           };
-        });
+        };
+
+        const mappedPackets = records.map(mapPacketData);
+        const mappedStatsPackets = statsRecords.map(mapPacketData);
         
         setPackets(mappedPackets);
         if (viewMode === 'overview') {
@@ -296,8 +279,8 @@ function App() {
           page: inspectorPage,
           limit: inspectorLimit,
           deviceId: inspectorDeviceId !== 'All' ? inspectorDeviceId : undefined,
-          startTime: normalizeDateTimeFilter(inspectorStartTime),
-          endTime: normalizeDateTimeFilter(inspectorEndTime),
+          startTime: inspectorStartTime && !isNaN(Date.parse(inspectorStartTime)) ? new Date(inspectorStartTime).toISOString() : undefined,
+          endTime: inspectorEndTime && !isNaN(Date.parse(inspectorEndTime)) ? new Date(inspectorEndTime).toISOString() : new Date().toISOString(),
           sortOrder: inspectorSortOrder
         };
         
@@ -310,6 +293,14 @@ function App() {
             y: pt.y,
             z: pt.z
           })) : [];
+
+          let pktTime = pkt.timestamp;
+          if (pktTime) {
+            const timeMs = new Date(pktTime).getTime();
+            if (!isNaN(timeMs) && timeMs > Date.now()) {
+              pktTime = new Date().toISOString();
+            }
+          }
 
           return {
             id: `dl-${pkt.id}`,
@@ -324,7 +315,7 @@ function App() {
               points: pointsMapped,
               rawPacket: pkt.raw_packet
             },
-            timestamp: pkt.timestamp,
+            timestamp: pktTime,
             rawPacket: pkt.raw_packet
           };
         });
@@ -544,13 +535,12 @@ function App() {
         ) : (
           <div className="auth-card glassmorphism">
             <div className="auth-logo">
-                <img
-                  src="/annamai.png"
-                  alt="IIT Ropar Annam.Ai"
-                  style={{ width: '110px', height: 'auto', objectFit: 'contain', display: 'block' }}
-                />
-              
-              <h2>IIT Ropar Annam.Ai</h2>
+              <div className="logo-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <path d="M6 3h12M18 3v3c0 2.2-1.8 4-4 4h-4c-2.2 0-4-1.8-4-4V3M5.5 21h13M8.5 10.5L3 21h18l-5.5-10.5" />
+                </svg>
+              </div>
+              <h2>BLE Sensor</h2>
             </div>
             
             {authView === 'login' && (
