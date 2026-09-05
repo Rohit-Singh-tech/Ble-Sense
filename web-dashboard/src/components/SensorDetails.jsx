@@ -14,12 +14,15 @@ const parseRawDataToChunks = (rawData) => {
     const offset = i * chunkSize;
     const chunkBytes = bytes.slice(offset, offset + chunkSize);
 
-    // Byte 0 → device ID
-    const deviceId = chunkBytes[0] & 0xFF;
+    // Bytes 0..1 (Mfg 2..3) → packetId (little-endian)
+    const packetId = (chunkBytes[0] & 0xFF) | ((chunkBytes[1] & 0xFF) << 8);
 
-    // Bytes 1..240 → 80 XYZ points (3 bytes each)
+    // Byte 2 (Mfg 4) → nodeId
+    const nodeId = chunkBytes[2] & 0xFF;
+
+    // Bytes 3..242 (Mfg 5..244) → 80 XYZ points (3 bytes each = 240 bytes)
     const points = [];
-    for (let p = 1; p <= 238; p += 3) {
+    for (let p = 3; p <= 240; p += 3) {
       let x = chunkBytes[p] & 0xFF;
       let y = chunkBytes[p + 1] & 0xFF;
       let z = chunkBytes[p + 2] & 0xFF;
@@ -32,13 +35,10 @@ const parseRawDataToChunks = (rawData) => {
       });
     }
 
-    // Bytes 241..242 → packetId (little-endian)
-    const packetId = (chunkBytes[241] & 0xFF) | ((chunkBytes[242] & 0xFF) << 8);
+    // Bytes 243..244 (Mfg 245..246) → totalPackets (little-endian)
+    const totalPackets = (chunkBytes[243] & 0xFF) | ((chunkBytes[244] & 0xFF) << 8);
 
-    // Bytes 243..244 → lastSavedPacketId (little-endian)
-    const lastSavedPacketId = (chunkBytes[243] & 0xFF) | ((chunkBytes[244] & 0xFF) << 8);
-
-    // Byte 245 → footer
+    // Byte 245 (Mfg 247) → footer / checksum
     const footer = chunkBytes[245] & 0xFF;
 
     // Raw hex of this chunk
@@ -46,9 +46,9 @@ const parseRawDataToChunks = (rawData) => {
 
     chunks.push({
       chunkIndex: i,
-      deviceId,
+      nodeId,
       packetId,
-      lastSavedPacketId,
+      totalPackets,
       footer,
       points,
       rawHex
@@ -128,9 +128,9 @@ const SensorDetails = ({ sensor, onClose }) => {
             <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px' }}>
               <h4 style={{ marginTop: 0, color: 'var(--text-secondary)' }}>FRAME {chunk.chunkIndex + 1} TELEMETRY METADATA</h4>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>Batch ID:</strong> {chunk.packetId}</div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>Previous Batch ID:</strong> {chunk.lastSavedPacketId}</div>
-                <div><strong style={{ color: 'var(--text-secondary)' }}>Node Address:</strong> 0x{chunk.deviceId.toString(16).padStart(2, '0').toUpperCase()}</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>Packet ID:</strong> #{chunk.packetId}</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>Total Packets:</strong> {chunk.totalPackets}</div>
+                <div><strong style={{ color: 'var(--text-secondary)' }}>Node ID:</strong> {chunk.nodeId} (0x{chunk.nodeId.toString(16).padStart(2, '0').toUpperCase()})</div>
                 <div><strong style={{ color: 'var(--text-secondary)' }}>Checksum:</strong> 0x{chunk.footer.toString(16).padStart(2, '0').toUpperCase()}</div>
               </div>
             </div>
