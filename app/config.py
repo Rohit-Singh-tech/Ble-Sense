@@ -3,19 +3,19 @@ from pydantic import EmailStr
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///./blesense.db"
 
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: str = "super_secret_ble_sense_key_change_in_production_12345"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # SMTP Configuration
-    SMTP_HOST: str
+    SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
-    SMTP_USERNAME: str
-    SMTP_PASSWORD: str
-    SMTP_FROM_EMAIL: EmailStr
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@blesense.com"
     SMTP_FROM_NAME: str = "BLE Sense Ecosystem"
 
     # Default Admin Config

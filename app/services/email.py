@@ -18,6 +18,11 @@ def send_smtp_email(to_email: str, subject: str, html_content: str):
     part = MIMEText(html_content, "html")
     message.attach(part)
 
+    # Skip sending if SMTP credentials are not configured
+    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD:
+        print(f"⚠️ SMTP not configured (SMTP_USERNAME/SMTP_PASSWORD missing). Skipped email to {to_email} | Subject: {subject}")
+        return
+
     try:
         # Connect to Gmail SMTP
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
