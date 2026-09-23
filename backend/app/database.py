@@ -2,10 +2,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config import settings
 
+# Handle cloud providers (e.g., Render, Supabase, Neon) supplying postgres:// instead of postgresql://
+database_url = settings.DATABASE_URL
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
 # Create database engine
 # For PostgreSQL we do not need connect_args={"check_same_thread": False}
 engine = create_engine(
-    settings.DATABASE_URL,
+    database_url,
     pool_size=20,
     max_overflow=10,
     pool_recycle=3600,
