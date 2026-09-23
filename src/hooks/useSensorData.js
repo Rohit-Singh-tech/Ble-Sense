@@ -52,13 +52,13 @@ export function useSensorData({
           type: activeCategory !== 'All' ? activeCategory : undefined,
           deviceId: overviewDeviceId !== 'All' ? overviewDeviceId : undefined,
           startTime: overviewStartTime && !isNaN(Date.parse(overviewStartTime)) ? new Date(overviewStartTime).toISOString() : undefined,
-          endTime: overviewEndTime && !isNaN(Date.parse(overviewEndTime)) ? new Date(overviewEndTime).toISOString() : new Date().toISOString(),
+          endTime: overviewEndTime && !isNaN(Date.parse(overviewEndTime)) ? new Date(overviewEndTime).toISOString() : undefined,
           search: overviewSearch || undefined,
           sortField: overviewSortField,
           sortOrder: overviewSortOrder
         };
 
-        const statsParams = { page: 1, limit: 100, appId: selectedAppId, endTime: new Date().toISOString() };
+        const statsParams = { page: 1, limit: 100, appId: selectedAppId };
 
         const [response, statsResponse] = await Promise.all([
           api.get('/api/packets', { params }),
@@ -80,13 +80,7 @@ export function useSensorData({
           else if (innerData.lux) sensorType = 'Lux Sensor';
           else if (innerData.ammonia) sensorType = 'Ammonia Sensor';
 
-          let rawTime = pkt.timestamp || payload.timestamp;
-          if (rawTime) {
-            const timeMs = new Date(rawTime).getTime();
-            if (!isNaN(timeMs) && timeMs > Date.now()) {
-              rawTime = new Date().toISOString();
-            }
-          }
+          const rawTime = pkt.timestamp || payload.timestamp;
 
           return {
             ...pkt,
@@ -106,7 +100,7 @@ export function useSensorData({
           limit: inspectorLimit,
           deviceId: inspectorDeviceId !== 'All' ? inspectorDeviceId : undefined,
           startTime: inspectorStartTime && !isNaN(Date.parse(inspectorStartTime)) ? new Date(inspectorStartTime).toISOString() : undefined,
-          endTime: inspectorEndTime && !isNaN(Date.parse(inspectorEndTime)) ? new Date(inspectorEndTime).toISOString() : new Date().toISOString(),
+          endTime: inspectorEndTime && !isNaN(Date.parse(inspectorEndTime)) ? new Date(inspectorEndTime).toISOString() : undefined,
           sortOrder: inspectorSortOrder
         };
 
@@ -114,13 +108,7 @@ export function useSensorData({
         const { total, records } = response.data;
 
         const dlPackets = records.map(pkt => {
-          let pktTime = pkt.timestamp;
-          if (pktTime) {
-            const timeMs = new Date(pktTime).getTime();
-            if (!isNaN(timeMs) && timeMs > Date.now()) {
-              pktTime = new Date().toISOString();
-            }
-          }
+          const pktTime = pkt.timestamp;
 
           return {
             id: `dl-${pkt.id}`,
