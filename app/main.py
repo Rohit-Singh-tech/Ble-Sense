@@ -11,7 +11,15 @@ from app.services.queue import packet_worker
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup actions: Seed default admin user
+    # Startup actions: Ensure tables exist
+    try:
+        from app.database import Base, engine
+        import app.models
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"⚠️ Table initialization notice: {e}")
+
+    # Seed default admin user
     db = SessionLocal()
     try:
         admin_username = settings.DEFAULT_ADMIN_USERNAME
