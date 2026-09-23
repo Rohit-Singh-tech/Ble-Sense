@@ -105,8 +105,6 @@ def get_processed_headers(
         query = query.filter(DataLoggerHeader.timestamp >= start_time)
     if end_time:
         query = query.filter(DataLoggerHeader.timestamp <= end_time)
-    else:
-        query = query.filter(DataLoggerHeader.timestamp <= func.now())
         
     if sort_order == 'asc':
         query = query.order_by(DataLoggerHeader.timestamp.asc())
