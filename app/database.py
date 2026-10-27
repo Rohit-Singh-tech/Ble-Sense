@@ -7,6 +7,18 @@ database_url = settings.DATABASE_URL
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
+# Ensure compatibility between psycopg (v3, default in SQLAlchemy 2.1+) and psycopg2
+try:
+    import psycopg  # noqa: F401 - psycopg v3
+except ImportError:
+    try:
+        import psycopg2  # noqa: F401
+        # Fall back to psycopg2 driver if psycopg (v3) is not installed
+        if database_url and database_url.startswith("postgresql://"):
+            database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    except ImportError:
+        pass
+
 # Create database engine
 # For PostgreSQL we do not need connect_args={"check_same_thread": False}
 engine = create_engine(

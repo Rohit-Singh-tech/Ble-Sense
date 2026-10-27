@@ -24,6 +24,17 @@ config = context.config
 db_url = settings.DATABASE_URL
 if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+try:
+    import psycopg  # noqa: F401 - psycopg v3
+except ImportError:
+    try:
+        import psycopg2  # noqa: F401
+        if db_url and db_url.startswith("postgresql://"):
+            db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    except ImportError:
+        pass
+
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
