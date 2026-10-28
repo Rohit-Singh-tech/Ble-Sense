@@ -52,6 +52,8 @@ async def packet_worker():
             finally:
                 db.close()
                 packet_queue.task_done()
+                import gc
+                gc.collect()
         except asyncio.CancelledError:
             print("Background worker task cancelled.")
             break

@@ -22,10 +22,22 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
     and returns a summary of the ingested packets with their calculated device IDs and timestamps.
     """
     body = payload
+    total_count = len(body) if isinstance(body, list) else 1
     
+    # If receiving a massive burst (> 100 packets), store a compact summary in raw_packets
+    # to avoid blowing up memory with multi-megabyte JSON allocations
+    if isinstance(body, list) and len(body) > 100:
+        raw_storage = {
+            "summary": f"Bulk batch of {total_count} packets",
+            "count": total_count,
+            "sample": body[:5]
+        }
+    else:
+        raw_storage = body
+
     # 1. Create raw packet entry in processed status
     raw_packet = RawPacket(
-        payload=body,
+        payload=raw_storage,
         status="processed",
         created_at=func.now(),
         processed_at=func.now()
@@ -42,10 +54,14 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database insertion failed: {str(e)}"
         )
+    finally:
+        import gc
+        gc.collect()
 
     return {
         "status": "success",
-        "message": "Packets successfully ingested and processed synchronously",
+        "message": f"Successfully ingested and processed {total_count} packets",
+        "total_packets": total_count,
         "raw_packet_id": raw_packet.id,
         "processed_packets": processed_summary
     }
