@@ -23,7 +23,10 @@ const Header = ({
   setTheme,
   selectedAppId,
   setSelectedAppId,
-  uniqueAppIds
+  uniqueAppIds,
+  totalRecords,
+  queueTotal,
+  inspectorTotal
 }) => {
   return (
     <header className="top-bar">
@@ -38,10 +41,10 @@ const Header = ({
           {viewMode === 'settings' && 'Settings'}
         </h1>
         <p className="view-subtitle">
-          {viewMode === 'overview' && `${packets.length} records logged`}
+          {viewMode === 'overview' && `${(totalRecords ?? packets.length).toLocaleString()} records logged`}
           {viewMode === 'graph' && `Live telemetry stream`}
-          {viewMode === 'queue' && `${rawPackets.length} enqueued packets`}
-          {viewMode === 'datalogger' && `${packets.filter(p => p.type === 'DataLogger').length} parsed logs`}
+          {viewMode === 'queue' && `${(queueTotal ?? rawPackets.length).toLocaleString()} enqueued packets`}
+          {viewMode === 'datalogger' && `${(inspectorTotal ?? packets.filter(p => p.type === 'DataLogger').length).toLocaleString()} parsed logs`}
           {viewMode === 'export' && `Export BLE telemetry & spatial logs as CSV`}
           {viewMode === 'admin' && `Manage user privileges`}
           {viewMode === 'settings' && `API configuration`}

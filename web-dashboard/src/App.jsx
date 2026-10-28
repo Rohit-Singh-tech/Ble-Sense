@@ -218,10 +218,10 @@ function App() {
           sortOrder: overviewSortOrder
         };
 
-        // Also fetch statsPackets for the top grid cards (always latest 100, unfiltered by page/search, but filtered by appId)
+        // Also fetch statsPackets for the top grid cards (latest 20, sufficient to determine latest for all 6 sensor types)
         const statsParams = {
           page: 1,
-          limit: 100,
+          limit: 20,
           appId: selectedAppId
         };
         
@@ -604,6 +604,9 @@ function App() {
             selectedAppId={selectedAppId}
             setSelectedAppId={setSelectedAppId}
             uniqueAppIds={uniqueAppIds}
+            totalRecords={overviewTotal}
+            queueTotal={queueTotal}
+            inspectorTotal={inspectorTotal}
           />
 
           {/* Conditional Page View Router */}

@@ -82,30 +82,17 @@ def process_payload(
                 dev_id = str(int(chunk[2], 16))
                 tot_pkts = int(chunk[244], 16) * 256 + int(chunk[243], 16)
 
-                points_list = []
-                data_tokens = chunk[3:243]
-                for pt_idx in range(0, len(data_tokens), 3):
-                    rx = int(data_tokens[pt_idx], 16)
-                    ry = int(data_tokens[pt_idx+1], 16)
-                    rz = int(data_tokens[pt_idx+2], 16)
-
-                    # Two's complement signed 8-bit conversion
-                    x_val = rx - 256 if rx >= 128 else rx
-                    y_val = ry - 256 if ry >= 128 else ry
-                    z_val = rz - 256 if rz >= 128 else rz
-
-                    points_list.append({"x": x_val, "y": y_val, "z": z_val})
-
                 if dev_id not in datalogger_by_device:
                     datalogger_by_device[dev_id] = []
 
+                # Keep lightweight token reference; decode points on-demand to save memory
                 datalogger_by_device[dev_id].append({
                     "app_id": app_id,
                     "device_id": dev_id,
                     "packet_id_num": pkt_idx,
                     "total_packets": tot_pkts,
                     "raw_data": " ".join(chunk).upper(),
-                    "points": points_list,
+                    "data_tokens": chunk[3:243],
                     "raw_pkt_dict": pkt
                 })
 
@@ -122,26 +109,17 @@ def process_payload(
             except (ValueError, TypeError):
                 total_packets = 0
 
-            points_list = inner_data.get("points", [])
-            points_cleaned = []
-            for pt in points_list:
-                if isinstance(pt, dict):
-                    points_cleaned.append({
-                        "x": pt.get("x", 0),
-                        "y": pt.get("y", 0),
-                        "z": pt.get("z", 0)
-                    })
-
             if dev_id not in datalogger_by_device:
                 datalogger_by_device[dev_id] = []
 
+            # Keep original points reference; do not duplicate dicts in memory
             datalogger_by_device[dev_id].append({
                 "app_id": app_id,
                 "device_id": dev_id,
                 "packet_id_num": packet_id_num,
                 "total_packets": total_packets,
                 "raw_data": raw_data,
-                "points": points_cleaned,
+                "raw_points": inner_data.get("points"),
                 "raw_pkt_dict": pkt
             })
 
@@ -157,114 +135,173 @@ def process_payload(
     processed_summary = []
 
     # -------------------------------------------------------------
-    # Process DataLogger packets by device with collision shift
+    # Process DataLogger packets by device with session-aware sequencing
     # -------------------------------------------------------------
     for dev_id, items in datalogger_by_device.items():
         M = len(items)
         if M == 0:
             continue
 
-        # Timestamps for this batch: item 0 gets receive_time, item k gets receive_time - k*8s
-        # Oldest packet in this new batch will have timestamp t_start
-        t_start = receive_time - timedelta(seconds=(M - 1) * 8)
-        t_end = receive_time
+        # Check if this chunk is a continuation of an ongoing upload session for this device
+        # (e.g. mobile app uploading chunks within the last 60 seconds)
+        recent_cutoff = receive_time - timedelta(seconds=60)
+        recent_header = db.query(DataLoggerHeader).filter(
+            DataLoggerHeader.device_id == str(dev_id),
+            DataLoggerHeader.created_at >= recent_cutoff
+        ).order_by(DataLoggerHeader.timestamp.asc()).first()
 
-        # Check for collisions with existing records in datalogger_headers
-        # Any existing record with timestamp >= t_start - 7s is in collision range
-        collision_threshold = t_start - timedelta(seconds=7)
-        existing_headers = db.query(DataLoggerHeader).filter(
-            DataLoggerHeader.device_id == dev_id
-        ).all()
+        if recent_header:
+            # Seamless continuation of active upload session:
+            # Anchor this chunk to sit immediately prior to the oldest packet of the current session
+            chunk_base_time = _normalize_utc(recent_header.timestamp) - timedelta(seconds=8)
+        else:
+            # New upload session: anchor first packet to current receive time
+            chunk_base_time = receive_time
 
-        colliding_headers = [
-            h for h in existing_headers
-            if _normalize_utc(h.timestamp) >= collision_threshold
-        ]
+            # Collision check with historical sessions
+            t_start = chunk_base_time - timedelta(seconds=(M - 1) * 8)
+            collision_threshold = t_start - timedelta(seconds=7)
 
-        if colliding_headers:
-            t_max_colliding = max(_normalize_utc(h.timestamp) for h in colliding_headers)
-            # Calculate shift amount to place t_max_colliding exactly 8s before t_start
-            delta = (t_max_colliding - t_start) + timedelta(seconds=8)
+            colliding_headers = db.query(DataLoggerHeader).filter(
+                DataLoggerHeader.device_id == str(dev_id),
+                DataLoggerHeader.timestamp >= collision_threshold
+            ).all()
 
-            # Shift all existing DataLoggerHeader records of this device that are <= t_max_colliding
-            for h in existing_headers:
-                if _normalize_utc(h.timestamp) <= t_max_colliding:
-                    h.timestamp = _normalize_utc(h.timestamp) - delta
+            if colliding_headers:
+                t_max_colliding = max(_normalize_utc(h.timestamp) for h in colliding_headers)
+                delta = (t_max_colliding - t_start) + timedelta(seconds=8)
 
-            # Also shift corresponding SensorPacket records for this device
-            all_sensor_packets = db.query(SensorPacket).all()
-            for sp in all_sensor_packets:
-                data_dict = sp.data if isinstance(sp.data, dict) else {}
-                inner = data_dict.get("data", data_dict) if isinstance(data_dict, dict) else {}
-                sp_dev = str(data_dict.get("deviceId") or inner.get("deviceId") or "")
-                if sp_dev == str(dev_id):
-                    sp_time = _normalize_utc(sp.timestamp) if sp.timestamp else None
-                    if sp_time and sp_time <= t_max_colliding:
-                        sp.timestamp = sp_time - delta
+                # Fast single-query SQL shift for DataLoggerHeader
+                db.query(DataLoggerHeader).filter(
+                    DataLoggerHeader.device_id == str(dev_id),
+                    DataLoggerHeader.timestamp <= t_max_colliding
+                ).update(
+                    {DataLoggerHeader.timestamp: DataLoggerHeader.timestamp - delta},
+                    synchronize_session=False
+                )
+
+                # Fast SQL shift for SensorPacket (avoid full table scan)
+                try:
+                    db.query(SensorPacket).filter(
+                        (SensorPacket.data['deviceId'].as_string() == str(dev_id)) |
+                        (SensorPacket.data['data']['deviceId'].as_string() == str(dev_id)),
+                        SensorPacket.timestamp <= t_max_colliding
+                    ).update(
+                        {SensorPacket.timestamp: SensorPacket.timestamp - delta},
+                        synchronize_session=False
+                    )
+                except Exception:
+                    # Fallback for dialects without direct JSON operator in UPDATE (e.g. older SQLite)
+                    target_sps = db.query(SensorPacket).filter(SensorPacket.timestamp <= t_max_colliding).all()
+                    for sp in target_sps:
+                        data_dict = sp.data if isinstance(sp.data, dict) else {}
+                        inner = data_dict.get("data", data_dict) if isinstance(data_dict, dict) else {}
+                        sp_dev = str(data_dict.get("deviceId") or inner.get("deviceId") or "")
+                        if sp_dev == str(dev_id):
+                            sp_time = _normalize_utc(sp.timestamp) if sp.timestamp else None
+                            if sp_time and sp_time <= t_max_colliding:
+                                sp.timestamp = sp_time - delta
+
+                db.flush()
+
+        # Insert new headers and points in controlled chunks of 200 packets (prevents RAM spikes on 10k bursts)
+        CHUNK_SIZE = 200
+        for start_idx in range(0, M, CHUNK_SIZE):
+            chunk_items = items[start_idx : start_idx + CHUNK_SIZE]
+            points_batch = []
+
+            for offset_k, item in enumerate(chunk_items):
+                k = start_idx + offset_k
+                packet_time = chunk_base_time - timedelta(seconds=k * 8)
+
+                header = DataLoggerHeader(
+                    raw_packet_id=raw_packet_id,
+                    app_id=item["app_id"],
+                    device_id=item["device_id"],
+                    packet_id_num=item["packet_id_num"],
+                    total_packets=item["total_packets"],
+                    raw_data=item["raw_data"],
+                    timestamp=packet_time
+                )
+                db.add(header)
+                db.flush()
+
+                # On-demand point extraction for this header (never hold full 800,000 points in memory)
+                pts_count = 0
+                if "data_tokens" in item:
+                    data_tokens = item["data_tokens"]
+                    for pt_idx in range(0, len(data_tokens), 3):
+                        if pt_idx + 2 < len(data_tokens):
+                            rx = int(data_tokens[pt_idx], 16)
+                            ry = int(data_tokens[pt_idx + 1], 16)
+                            rz = int(data_tokens[pt_idx + 2], 16)
+                            x_val = rx - 256 if rx >= 128 else rx
+                            y_val = ry - 256 if ry >= 128 else ry
+                            z_val = rz - 256 if rz >= 128 else rz
+                            points_batch.append({
+                                "header_id": header.id,
+                                "point_index": pts_count,
+                                "x": x_val,
+                                "y": y_val,
+                                "z": z_val
+                            })
+                            pts_count += 1
+                elif "raw_points" in item and item["raw_points"]:
+                    for idx, pt in enumerate(item["raw_points"]):
+                        if isinstance(pt, dict):
+                            points_batch.append({
+                                "header_id": header.id,
+                                "point_index": idx,
+                                "x": pt.get("x", 0),
+                                "y": pt.get("y", 0),
+                                "z": pt.get("z", 0)
+                            })
+                            pts_count += 1
+
+                # Lightweight SensorPacket for Overview (omits redundant 80-item points array)
+                pkt_dict = item["raw_pkt_dict"]
+                sensor_packet_data = {
+                    "type": "DataLogger",
+                    "deviceId": item["device_id"],
+                    "packetId": item["packet_id_num"],
+                    "totalPackets": item["total_packets"],
+                    "rawData": item["raw_data"],
+                    "pointsCount": pts_count
+                }
+                if "data" in pkt_dict and isinstance(pkt_dict["data"], dict):
+                    envelope = dict(pkt_dict["data"])
+                    envelope["deviceId"] = item["device_id"]
+                    envelope["packetId"] = item["packet_id_num"]
+                    envelope["totalPackets"] = item["total_packets"]
+                    envelope["pointsCount"] = pts_count
+                    envelope.pop("points", None)
+                    sensor_packet_data = envelope
+
+                db_sensor = SensorPacket(
+                    app_id=item["app_id"],
+                    data=sensor_packet_data,
+                    timestamp=packet_time
+                )
+                db.add(db_sensor)
+
+                # Cap summary to 50 items to keep HTTP response payload minimal
+                if len(processed_summary) < 50:
+                    processed_summary.append({
+                        "type": "DataLogger",
+                        "deviceId": item["device_id"],
+                        "packetId": item["packet_id_num"],
+                        "timestamp": packet_time.isoformat(),
+                        "pointsCount": pts_count
+                    })
+
+            # Sub-chunk bulk insert points in slices of 2,000 to obey Postgres parameter limits
+            if points_batch:
+                SUB_CHUNK = 2000
+                for sub_i in range(0, len(points_batch), SUB_CHUNK):
+                    db.bulk_insert_mappings(DataLoggerPoint, points_batch[sub_i : sub_i + SUB_CHUNK])
+                points_batch.clear()
 
             db.flush()
-
-        # Now insert new packets for this device
-        for k, item in enumerate(items):
-            packet_time = receive_time - timedelta(seconds=k * 8)
-
-            header = DataLoggerHeader(
-                raw_packet_id=raw_packet_id,
-                app_id=item["app_id"],
-                device_id=item["device_id"],
-                packet_id_num=item["packet_id_num"],
-                total_packets=item["total_packets"],
-                raw_data=item["raw_data"],
-                timestamp=packet_time
-            )
-            db.add(header)
-            db.flush()
-
-            if item["points"]:
-                db_points = [
-                    DataLoggerPoint(
-                        header_id=header.id,
-                        point_index=idx,
-                        x=pt["x"],
-                        y=pt["y"],
-                        z=pt["z"]
-                    ) for idx, pt in enumerate(item["points"])
-                ]
-                db.add_all(db_points)
-
-            # Insert to sensor_packets for Overview dashboard mapping
-            pkt_dict = item["raw_pkt_dict"]
-            sensor_packet_data = {
-                "type": "DataLogger",
-                "deviceId": item["device_id"],
-                "packetId": item["packet_id_num"],
-                "totalPackets": item["total_packets"],
-                "rawData": item["raw_data"],
-                "points": item["points"]
-            }
-            if "data" in pkt_dict and isinstance(pkt_dict["data"], dict):
-                # Preserve any existing envelope fields while updating inner payload
-                envelope = dict(pkt_dict["data"])
-                envelope["deviceId"] = item["device_id"]
-                envelope["packetId"] = item["packet_id_num"]
-                envelope["totalPackets"] = item["total_packets"]
-                envelope["points"] = item["points"]
-                sensor_packet_data = envelope
-
-            db_sensor = SensorPacket(
-                app_id=item["app_id"],
-                data=sensor_packet_data,
-                timestamp=packet_time
-            )
-            db.add(db_sensor)
-
-            processed_summary.append({
-                "type": "DataLogger",
-                "deviceId": item["device_id"],
-                "packetId": item["packet_id_num"],
-                "timestamp": packet_time.isoformat(),
-                "pointsCount": len(item["points"])
-            })
 
     # -------------------------------------------------------------
     # Process Standard Telemetry packets
@@ -280,10 +317,17 @@ def process_payload(
         )
         db.add(db_sensor)
 
-        processed_summary.append({
-            "type": item["sensor_type"],
-            "deviceId": item["inner_data"].get("deviceId", "Unknown"),
-            "timestamp": packet_time.isoformat()
-        })
+        if len(processed_summary) < 50:
+            processed_summary.append({
+                "type": item["sensor_type"],
+                "deviceId": item["inner_data"].get("deviceId", "Unknown"),
+                "timestamp": packet_time.isoformat()
+            })
+
+    db.flush()
+
+    # Explicitly run garbage collection to release transient structures immediately
+    import gc
+    gc.collect()
 
     return processed_summary

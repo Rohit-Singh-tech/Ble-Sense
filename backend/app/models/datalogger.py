@@ -29,7 +29,7 @@ class DataLoggerHeader(Base):
     total_packets = Column(Integer, default=0)
     raw_data = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), default=func.now(), index=True)
 
     # Relationships
     raw_packet = relationship("RawPacket", back_populates="header")
