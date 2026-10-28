@@ -58,7 +58,7 @@ export function useSensorData({
           sortOrder: overviewSortOrder
         };
 
-        const statsParams = { page: 1, limit: 100, appId: selectedAppId };
+        const statsParams = { page: 1, limit: 20, appId: selectedAppId };
 
         const [response, statsResponse] = await Promise.all([
           api.get('/api/packets', { params }),
