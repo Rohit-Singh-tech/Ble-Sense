@@ -57,9 +57,9 @@ async def create_sensor_packets(
         processed_summary = process_payload(body, db, raw_packet_id=raw_packet.id)
         db.commit()
 
-        # Database write succeeded. If running on Cloud (Render) and local tunnel is active, mirror asynchronously
-        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
-            background_tasks.add_task(tunnel_manager.mirror_packet_to_local, body)
+        # Database write succeeded on primary.
+        # Mobile app already streams directly to both Cloudflare and Render in parallel.
+        # Failover forwarding to local PC is handled in the except block below if primary DB fails.
 
         return {
             "status": "success",

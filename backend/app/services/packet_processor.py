@@ -206,11 +206,27 @@ def process_payload(
 
         # Insert new headers and points in controlled chunks of 200 packets (prevents RAM spikes on 10k bursts)
         CHUNK_SIZE = 200
+        seen_in_batch = set()
         for start_idx in range(0, M, CHUNK_SIZE):
             chunk_items = items[start_idx : start_idx + CHUNK_SIZE]
             points_batch = []
 
             for offset_k, item in enumerate(chunk_items):
+                # Deduplication Guard 1: Duplicate within same batch
+                pkt_key = (str(item["device_id"]), item["packet_id_num"])
+                if pkt_key in seen_in_batch:
+                    continue
+                seen_in_batch.add(pkt_key)
+
+                # Deduplication Guard 2: Duplicate packet already inserted in active session
+                existing_dup = db.query(DataLoggerHeader.id).filter(
+                    DataLoggerHeader.device_id == str(item["device_id"]),
+                    DataLoggerHeader.packet_id_num == item["packet_id_num"],
+                    DataLoggerHeader.created_at >= (receive_time - timedelta(minutes=30))
+                ).first()
+                if existing_dup:
+                    continue
+
                 k = start_idx + offset_k
                 packet_time = chunk_base_time - timedelta(seconds=k * 8)
 
