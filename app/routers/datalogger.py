@@ -12,6 +12,7 @@ from app.database import get_db, SessionLocal
 from app.models.datalogger import RawPacket, DataLoggerHeader, DataLoggerPoint
 from app.schemas.datalogger import RawPacketOut, DataLoggerHeaderOut, PaginatedRawPackets, PaginatedDataLoggerHeaders
 from app.services.queue import packet_queue
+from app.services.tunnel_manager import tunnel_manager
 
 router = APIRouter(prefix="/packets/datalogger", tags=["DataLogger Pipeline"])
 
@@ -50,7 +51,8 @@ async def ingest_datalogger_packet(request: Request, db: Session = Depends(get_d
 
 
 @router.get("/raw", response_model=PaginatedRawPackets)
-def get_raw_packets(
+async def get_raw_packets(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1),
     status_filter: Optional[str] = Query(None, alias="status"),
@@ -58,34 +60,48 @@ def get_raw_packets(
     sort_order: str = Query("desc", alias="sortOrder"),
     db: Session = Depends(get_db)
 ):
-    """Retrieve raw enqueued packets with pagination, filtering, and sorting."""
-    query = db.query(RawPacket)
-    if status_filter and status_filter != 'All':
-        query = query.filter(RawPacket.status == status_filter)
+    """
+    Retrieve raw enqueued packets with pagination, filtering, and sorting.
+    Falls back to local database via tunnel if primary database is unreachable.
+    """
+    try:
+        query = db.query(RawPacket)
+        if status_filter and status_filter != 'All':
+            query = query.filter(RawPacket.status == status_filter)
+            
+        if search:
+            search_term = f"%{search.lower()}%"
+            query = query.filter(
+                func.lower(cast(RawPacket.payload, Text)).like(search_term)
+            )
+            
+        if sort_order == 'asc':
+            query = query.order_by(RawPacket.created_at.asc())
+        else:
+            query = query.order_by(RawPacket.created_at.desc())
+            
+        total = query.count()
+        skip = (page - 1) * limit
+        records = query.offset(skip).limit(limit).all()
         
-    if search:
-        search_term = f"%{search.lower()}%"
-        query = query.filter(
-            func.lower(cast(RawPacket.payload, Text)).like(search_term)
+        return {
+            "total": total,
+            "records": records
+        }
+    except Exception as e:
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            proxied = await tunnel_manager.proxy_get(request.url.path, dict(request.query_params))
+            if proxied is not None:
+                return proxied
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch raw packets: {str(e)}"
         )
-        
-    if sort_order == 'asc':
-        query = query.order_by(RawPacket.created_at.asc())
-    else:
-        query = query.order_by(RawPacket.created_at.desc())
-        
-    total = query.count()
-    skip = (page - 1) * limit
-    records = query.offset(skip).limit(limit).all()
-    
-    return {
-        "total": total,
-        "records": records
-    }
 
 
 @router.get("/processed", response_model=PaginatedDataLoggerHeaders)
-def get_processed_headers(
+async def get_processed_headers(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1),
     device_id: Optional[str] = Query(None, alias="deviceId"),
@@ -95,52 +111,65 @@ def get_processed_headers(
     include_points: bool = Query(False, description="Include the parsed XYZ samples"),
     db: Session = Depends(get_db)
 ):
-    """Retrieve processed DataLogger headers with pagination, filtering, and sorting."""
-    query = db.query(DataLoggerHeader)
-    
-    if device_id and device_id != 'All':
-        query = query.filter(DataLoggerHeader.device_id == device_id)
+    """
+    Retrieve processed DataLogger headers with pagination, filtering, and sorting.
+    Falls back to local database via tunnel if primary database is unreachable.
+    """
+    try:
+        query = db.query(DataLoggerHeader)
         
-    if start_time:
-        query = query.filter(DataLoggerHeader.timestamp >= start_time)
-    if end_time:
-        query = query.filter(DataLoggerHeader.timestamp <= end_time)
+        if device_id and device_id != 'All':
+            query = query.filter(DataLoggerHeader.device_id == device_id)
+            
+        if start_time:
+            query = query.filter(DataLoggerHeader.timestamp >= start_time)
+        if end_time:
+            query = query.filter(DataLoggerHeader.timestamp <= end_time)
+            
+        if sort_order == 'asc':
+            query = query.order_by(DataLoggerHeader.timestamp.asc())
+        else:
+            query = query.order_by(DataLoggerHeader.timestamp.desc())
+            
+        total = query.count()
+        skip = (page - 1) * limit
         
-    if sort_order == 'asc':
-        query = query.order_by(DataLoggerHeader.timestamp.asc())
-    else:
-        query = query.order_by(DataLoggerHeader.timestamp.desc())
+        headers = query.options(
+            joinedload(DataLoggerHeader.raw_packet).load_only(
+                RawPacket.id,
+                RawPacket.status,
+                RawPacket.created_at,
+                RawPacket.processed_at
+            )
+        ).offset(skip).limit(limit).all()
         
-    total = query.count()
-    skip = (page - 1) * limit
-    
-    headers = query.options(
-        joinedload(DataLoggerHeader.raw_packet).load_only(
-            RawPacket.id,
-            RawPacket.status,
-            RawPacket.created_at,
-            RawPacket.processed_at
+        return {
+            "total": total,
+            "records": [
+                {
+                    "id": h.id,
+                    "raw_packet_id": h.raw_packet_id,
+                    "app_id": h.app_id,
+                    "device_id": h.device_id,
+                    "packet_id_num": h.packet_id_num,
+                    "total_packets": h.total_packets,
+                    "raw_data": h.raw_data,
+                    "timestamp": h.timestamp,
+                    "created_at": h.created_at,
+                    "raw_packet": h.raw_packet,
+                    "points": h.points if include_points else None
+                } for h in headers
+            ]
+        }
+    except Exception as e:
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            proxied = await tunnel_manager.proxy_get(request.url.path, dict(request.query_params))
+            if proxied is not None:
+                return proxied
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch processed headers: {str(e)}"
         )
-    ).offset(skip).limit(limit).all()
-    
-    return {
-        "total": total,
-        "records": [
-            {
-                "id": h.id,
-                "raw_packet_id": h.raw_packet_id,
-                "app_id": h.app_id,
-                "device_id": h.device_id,
-                "packet_id_num": h.packet_id_num,
-                "total_packets": h.total_packets,
-                "raw_data": h.raw_data,
-                "timestamp": h.timestamp,
-                "created_at": h.created_at,
-                "raw_packet": h.raw_packet,
-                "points": h.points if include_points else None
-            } for h in headers
-        ]
-    }
 
 
 @router.post("/{packet_id}/reprocess")
@@ -167,15 +196,30 @@ async def reprocess_raw_packet(packet_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/processed/{header_id}", response_model=DataLoggerHeaderOut)
-def get_processed_header(header_id: int, db: Session = Depends(get_db)):
-    """Retrieve a single processed DataLogger header with its XYZ samples."""
-    header = db.query(DataLoggerHeader).filter(DataLoggerHeader.id == header_id).first()
-    if not header:
+async def get_processed_header(header_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Retrieve a single processed DataLogger header with its XYZ samples.
+    Falls back to local database via tunnel if primary database is unreachable.
+    """
+    try:
+        header = db.query(DataLoggerHeader).filter(DataLoggerHeader.id == header_id).first()
+        if not header:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Processed header not found"
+            )
+        return header
+    except HTTPException:
+        raise
+    except Exception as e:
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            proxied = await tunnel_manager.proxy_get(request.url.path)
+            if proxied is not None:
+                return proxied
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Processed header not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch header: {str(e)}"
         )
-    return header
 
 
 @router.get("/export/csv")

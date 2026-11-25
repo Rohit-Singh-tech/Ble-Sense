@@ -1,25 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from typing import List, Union, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 import json
 import os
+import httpx
 from app.database import get_db
 from app.models.packet import SensorPacket
 from app.schemas.packet import PacketOut, PaginatedPackets
 from app.models.datalogger import RawPacket, DataLoggerHeader, DataLoggerPoint
 from app.services.queue import packet_queue
 from app.services.packet_processor import process_payload
+from app.services.tunnel_manager import tunnel_manager
 
 router = APIRouter(prefix="/packets", tags=["Sensor Packets"])
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], db: Session = Depends(get_db)):
+async def create_sensor_packets(
+    payload: Union[Dict[str, Any], List[Dict[str, Any]]],
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
     Ingest BLE sensor packets synchronously.
     Saves payload raw format to raw_packets, decodes and saves headers and points immediately,
     and returns a summary of the ingested packets with their calculated device IDs and timestamps.
+    Automatically mirrors to the local database and provides instant failover if the cloud database is down.
     """
     body = payload
     total_count = len(body) if isinstance(body, list) else 1
@@ -35,21 +43,44 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
     else:
         raw_storage = body
 
-    # 1. Create raw packet entry in processed status
-    raw_packet = RawPacket(
-        payload=raw_storage,
-        status="processed",
-        created_at=func.now(),
-        processed_at=func.now()
-    )
-    db.add(raw_packet)
-    db.flush() # Flush to get raw_packet.id
-
+    # 1. Attempt database insertion
     try:
+        raw_packet = RawPacket(
+            payload=raw_storage,
+            status="processed",
+            created_at=func.now(),
+            processed_at=func.now()
+        )
+        db.add(raw_packet)
+        db.flush() # Flush to get raw_packet.id
+
         processed_summary = process_payload(body, db, raw_packet_id=raw_packet.id)
         db.commit()
+
+        # Database write succeeded. If running on Cloud (Render) and local tunnel is active, mirror asynchronously
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            background_tasks.add_task(tunnel_manager.mirror_packet_to_local, body)
+
+        return {
+            "status": "success",
+            "message": f"Successfully ingested and processed {total_count} packets",
+            "total_packets": total_count,
+            "raw_packet_id": raw_packet.id,
+            "processed_packets": processed_summary
+        }
     except Exception as e:
         db.rollback()
+        # Failover check: If cloud database expired or failed, try saving directly to local PC via tunnel
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            try:
+                tunnel_url = tunnel_manager.get_tunnel_url()
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    proxy_res = await client.post(f"{tunnel_url}/api/packets", json=body)
+                    if proxy_res.is_success:
+                        return proxy_res.json()
+            except Exception as failover_err:
+                pass
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database insertion failed: {str(e)}"
@@ -57,14 +88,6 @@ def create_sensor_packets(payload: Union[Dict[str, Any], List[Dict[str, Any]]], 
     finally:
         import gc
         gc.collect()
-
-    return {
-        "status": "success",
-        "message": f"Successfully ingested and processed {total_count} packets",
-        "total_packets": total_count,
-        "raw_packet_id": raw_packet.id,
-        "processed_packets": processed_summary
-    }
 
 
 @router.post("/save-json", status_code=status.HTTP_200_OK)
@@ -98,16 +121,28 @@ async def save_to_json_file(request: Request):
 
 
 @router.get("/devices", response_model=List[str])
-def get_unique_device_ids(db: Session = Depends(get_db)):
+async def get_unique_device_ids(request: Request, db: Session = Depends(get_db)):
     """
     Retrieve all unique Device IDs present in processed datalogger headers.
+    Falls back to local database via tunnel if primary database is unreachable.
     """
-    device_ids = db.query(DataLoggerHeader.device_id).distinct().order_by(DataLoggerHeader.device_id).all()
-    return [d[0] for d in device_ids if d[0]]
+    try:
+        device_ids = db.query(DataLoggerHeader.device_id).distinct().order_by(DataLoggerHeader.device_id).all()
+        return [d[0] for d in device_ids if d[0]]
+    except Exception as e:
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            proxied = await tunnel_manager.proxy_get(request.url.path)
+            if proxied is not None:
+                return proxied
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch device IDs: {str(e)}"
+        )
 
 
 @router.get("", response_model=PaginatedPackets)
-def get_sensor_packets(
+async def get_sensor_packets(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1),
     app_id: Optional[str] = Query(None, alias="appId"),
@@ -122,82 +157,93 @@ def get_sensor_packets(
 ):
     """
     Fetch sensor packets with pagination, filtering, and sorting.
+    Falls back to local database via tunnel if primary database is unreachable.
     """
-    query = db.query(SensorPacket)
-    
-    # 1. Filter by App ID
-    if app_id and app_id != 'All':
-        query = query.filter(SensorPacket.app_id == app_id)
+    try:
+        query = db.query(SensorPacket)
         
-    # 2. Filter by Sensor Type (specifically 'DataLogger')
-    if sensor_type == 'DataLogger':
-        query = query.filter(
-            (SensorPacket.data['type'].as_string() == 'DataLogger') |
-            (SensorPacket.data['data']['type'].as_string() == 'DataLogger') |
-            (SensorPacket.data['deviceId'].is_not(None)) |
-            (SensorPacket.data['data']['deviceId'].is_not(None))
+        # 1. Filter by App ID
+        if app_id and app_id != 'All':
+            query = query.filter(SensorPacket.app_id == app_id)
+            
+        # 2. Filter by Sensor Type (specifically 'DataLogger')
+        if sensor_type == 'DataLogger':
+            query = query.filter(
+                (SensorPacket.data['type'].as_string() == 'DataLogger') |
+                (SensorPacket.data['data']['type'].as_string() == 'DataLogger') |
+                (SensorPacket.data['deviceId'].is_not(None)) |
+                (SensorPacket.data['data']['deviceId'].is_not(None))
+            )
+            
+        # 3. Filter by specific Device ID
+        if device_id and device_id != 'All':
+            query = query.filter(
+                (SensorPacket.data['deviceId'].as_string() == device_id) |
+                (SensorPacket.data['data']['deviceId'].as_string() == device_id)
+            )
+            
+        # 4. Filter by Date-Time Range
+        if start_time:
+            query = query.filter(SensorPacket.timestamp >= start_time)
+        if end_time:
+            query = query.filter(SensorPacket.timestamp <= end_time)
+            
+        # 5. Search filter (App ID or Device ID)
+        if search:
+            search_term = f"%{search.lower()}%"
+            query = query.filter(
+                (func.lower(SensorPacket.app_id).like(search_term)) |
+                (func.lower(SensorPacket.data['deviceId'].as_string()).like(search_term)) |
+                (func.lower(SensorPacket.data['data']['deviceId'].as_string()).like(search_term))
+            )
+            
+        # 6. Sorting
+        if sort_field == 'timestamp':
+            order_col = SensorPacket.timestamp
+        elif sort_field == 'deviceId':
+            order_col = func.coalesce(
+                SensorPacket.data['deviceId'].as_string(),
+                SensorPacket.data['data']['deviceId'].as_string(),
+                SensorPacket.app_id
+            )
+        elif sort_field == 'type':
+            order_col = func.coalesce(
+                SensorPacket.data['type'].as_string(),
+                SensorPacket.data['data']['type'].as_string(),
+                SensorPacket.app_id
+            )
+        else:
+            order_col = SensorPacket.timestamp
+            
+        if sort_order == 'asc':
+            query = query.order_by(order_col.asc())
+        else:
+            query = query.order_by(order_col.desc())
+            
+        total = query.count()
+        skip = (page - 1) * limit
+        packets = query.offset(skip).limit(limit).all()
+        
+        return {
+            "total": total,
+            "records": [
+                PacketOut(
+                    id=p.id,
+                    appId=p.app_id,
+                    data=p.data,
+                    timestamp=p.timestamp
+                ) for p in packets
+            ]
+        }
+    except Exception as e:
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            proxied = await tunnel_manager.proxy_get(request.url.path, dict(request.query_params))
+            if proxied is not None:
+                return proxied
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch sensor packets: {str(e)}"
         )
-        
-    # 3. Filter by specific Device ID
-    if device_id and device_id != 'All':
-        query = query.filter(
-            (SensorPacket.data['deviceId'].as_string() == device_id) |
-            (SensorPacket.data['data']['deviceId'].as_string() == device_id)
-        )
-        
-    # 4. Filter by Date-Time Range
-    if start_time:
-        query = query.filter(SensorPacket.timestamp >= start_time)
-    if end_time:
-        query = query.filter(SensorPacket.timestamp <= end_time)
-        
-    # 5. Search filter (App ID or Device ID)
-    if search:
-        search_term = f"%{search.lower()}%"
-        query = query.filter(
-            (func.lower(SensorPacket.app_id).like(search_term)) |
-            (func.lower(SensorPacket.data['deviceId'].as_string()).like(search_term)) |
-            (func.lower(SensorPacket.data['data']['deviceId'].as_string()).like(search_term))
-        )
-        
-    # 6. Sorting
-    if sort_field == 'timestamp':
-        order_col = SensorPacket.timestamp
-    elif sort_field == 'deviceId':
-        order_col = func.coalesce(
-            SensorPacket.data['deviceId'].as_string(),
-            SensorPacket.data['data']['deviceId'].as_string(),
-            SensorPacket.app_id
-        )
-    elif sort_field == 'type':
-        order_col = func.coalesce(
-            SensorPacket.data['type'].as_string(),
-            SensorPacket.data['data']['type'].as_string(),
-            SensorPacket.app_id
-        )
-    else:
-        order_col = SensorPacket.timestamp
-        
-    if sort_order == 'asc':
-        query = query.order_by(order_col.asc())
-    else:
-        query = query.order_by(order_col.desc())
-        
-    total = query.count()
-    skip = (page - 1) * limit
-    packets = query.offset(skip).limit(limit).all()
-    
-    return {
-        "total": total,
-        "records": [
-            PacketOut(
-                id=p.id,
-                appId=p.app_id,
-                data=p.data,
-                timestamp=p.timestamp
-            ) for p in packets
-        ]
-    }
 
 
 @router.post("/cleanup-future-packets")

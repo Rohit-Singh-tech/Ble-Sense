@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -6,19 +6,32 @@ from app.models.registry import TagRegistry
 from app.models.user import User
 from app.schemas.registry import TagRegistryCreate, TagRegistryOut
 from app.routers.deps import get_current_active_user, get_current_active_superuser
+from app.services.tunnel_manager import tunnel_manager
 
 router = APIRouter(prefix="/registry", tags=["Tag Registry"])
 
 @router.get("", response_model=List[TagRegistryOut])
-def get_registry(
+async def get_registry(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Fetch all registered device tag nodes.
     Accessible to all authenticated active users.
+    Falls back to local database via tunnel if primary database is unreachable.
     """
-    return db.query(TagRegistry).order_by(TagRegistry.device_id.asc()).all()
+    try:
+        return db.query(TagRegistry).order_by(TagRegistry.device_id.asc()).all()
+    except Exception as e:
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+            proxied = await tunnel_manager.proxy_get(request.url.path)
+            if proxied is not None:
+                return proxied
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch tag registry: {str(e)}"
+        )
 
 @router.post("", response_model=TagRegistryOut)
 def add_or_update_registry(
