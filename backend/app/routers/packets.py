@@ -57,9 +57,16 @@ async def create_sensor_packets(
         processed_summary = process_payload(body, db, raw_packet_id=raw_packet.id)
         db.commit()
 
-        # Database write succeeded on primary.
-        # Mobile app already streams directly to both Cloudflare and Render in parallel.
-        # Failover forwarding to local PC is handled in the except block below if primary DB fails.
+        # Check if the client already uploaded directly to the local PC
+        is_local_uploaded = (
+            request.headers.get("x-local-uploaded") == "true" or
+            request.query_params.get("local_uploaded") == "true"
+        )
+
+        # Proactive Mirroring: If running on Cloud (Render) and local tunnel is active,
+        # but the client was UNABLE to upload directly to local PC, mirror automatically!
+        if not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel() and not is_local_uploaded:
+            background_tasks.add_task(tunnel_manager.mirror_packet_to_local, body)
 
         return {
             "status": "success",

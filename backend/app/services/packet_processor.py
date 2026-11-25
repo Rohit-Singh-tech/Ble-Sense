@@ -218,11 +218,14 @@ def process_payload(
                     continue
                 seen_in_batch.add(pkt_key)
 
-                # Deduplication Guard 2: Duplicate packet already inserted in active session
+                # Deduplication Guard 2: Exact duplicate packet check
+                # Checks if a packet with the same device and packet_id was already inserted recently
+                # or has the exact same raw_data
                 existing_dup = db.query(DataLoggerHeader.id).filter(
                     DataLoggerHeader.device_id == str(item["device_id"]),
                     DataLoggerHeader.packet_id_num == item["packet_id_num"],
-                    DataLoggerHeader.created_at >= (receive_time - timedelta(minutes=30))
+                    (DataLoggerHeader.created_at >= (receive_time - timedelta(hours=6))) |
+                    (DataLoggerHeader.raw_data == item["raw_data"])
                 ).first()
                 if existing_dup:
                     continue
