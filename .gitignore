@@ -72,4 +72,8 @@ htmlcov/
 *.sqlite
 *.sqlite3
 **/instance/
+tunnel_state.json
+**/tunnel_state.json
+saved_body.json
+**/saved_body.json
 

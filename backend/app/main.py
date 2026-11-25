@@ -6,7 +6,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models.user import User
 from app.security import get_password_hash
-from app.routers import auth, users, packets, datalogger, registry
+from app.routers import auth, users, packets, datalogger, registry, system
 from app.services.queue import packet_worker
 
 @asynccontextmanager
@@ -91,6 +91,7 @@ if settings.FRONTEND_URL:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.netlify\.app|http://localhost:.*|http://127\.0\.0\.1:.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,6 +103,7 @@ app.include_router(users.router, prefix="/api")
 app.include_router(packets.router, prefix="/api")
 app.include_router(datalogger.router, prefix="/api")
 app.include_router(registry.router, prefix="/api")
+app.include_router(system.router, prefix="/api")
 
 # Simple base check
 @app.get("/")
