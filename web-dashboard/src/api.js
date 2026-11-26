@@ -84,35 +84,54 @@ if (typeof window !== 'undefined') {
 }
 
 export const downloadCsvExport = async (params = {}) => {
+  let response;
   try {
-    const response = await api.get('/api/packets/datalogger/export/csv', {
+    response = await api.get('/api/packets/datalogger/export/csv', {
       params,
-      responseType: 'blob'
+      responseType: 'blob',
+      timeout: 30000
     });
 
-    let filename = `datalogger_export_${Date.now()}.csv`;
-    const disposition = response.headers['content-disposition'];
-    if (disposition && disposition.includes('filename=')) {
-      const match = disposition.match(/filename="?([^";]+)"?/);
-      if (match && match[1]) {
-        filename = match[1];
-      }
+    // Check if the response was an empty or failed stream
+    if (!response.data || response.data.size < 50) {
+      throw new Error('Downloaded CSV is empty or stream was terminated');
     }
-
-    const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    return true;
-  } catch (error) {
-    console.error('Failed to download CSV export:', error);
-    throw error;
+  } catch (primaryErr) {
+    const cachedTunnel = localStorage.getItem(STORAGE_KEY_TUNNEL);
+    if (cachedTunnel) {
+      console.warn(`[BLE Sense Export] Primary export failed (${primaryErr.message}). Retrying via local PC tunnel: ${cachedTunnel}`);
+      response = await axios.get(`${cachedTunnel}/api/packets/datalogger/export/csv`, {
+        params,
+        responseType: 'blob',
+        timeout: 60000
+      });
+      if (!response.data || response.data.size < 50) {
+        throw new Error('Local PC database also returned empty export data.');
+      }
+    } else {
+      throw primaryErr;
+    }
   }
+
+  let filename = `datalogger_export_${Date.now()}.csv`;
+  const disposition = response.headers?.['content-disposition'];
+  if (disposition && disposition.includes('filename=')) {
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    if (match && match[1]) {
+      filename = match[1];
+    }
+  }
+
+  const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  return true;
 };
 
 export default api;

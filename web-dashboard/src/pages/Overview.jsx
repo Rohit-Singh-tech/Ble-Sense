@@ -8,6 +8,7 @@ const SENSOR_CATEGORIES = [
 ];
 
 const Overview = ({
+  theme = 'dark',
   packets,
   statsPackets = [],
   loadingPackets,
@@ -192,7 +193,7 @@ const Overview = ({
                     type="datetime-local" 
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark', width: '100%' }}
+                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: theme === 'light' ? 'light' : 'dark', width: '100%' }}
                   />
                 </div>
 
@@ -203,7 +204,7 @@ const Overview = ({
                     type="datetime-local" 
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark', width: '100%' }}
+                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: theme === 'light' ? 'light' : 'dark', width: '100%' }}
                   />
                 </div>
 
@@ -311,34 +312,16 @@ const Overview = ({
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
+                  className="btn-pagination"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  style={{
-                    background: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                    color: currentPage === 1 ? 'rgba(255,255,255,0.2)' : 'white',
-                    border: '1px solid var(--card-border)',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600
-                  }}
                 >
                   Previous
                 </button>
                 <button
+                  className="btn-pagination"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  style={{
-                    background: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                    color: currentPage === totalPages ? 'rgba(255,255,255,0.2)' : 'white',
-                    border: '1px solid var(--card-border)',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600
-                  }}
                 >
                   Next
                 </button>
