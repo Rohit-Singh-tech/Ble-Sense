@@ -343,7 +343,8 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
                 </select>
                 <button 
                   onClick={() => setUserSortOrder(userSortOrder === 'asc' ? 'desc' : 'asc')}
-                  style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem' }}
                 >
                   {userSortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
                 </button>
@@ -448,32 +449,18 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
                 </span>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button
+                    className="btn-pagination"
                     disabled={userPage === 1}
                     onClick={() => setUserPage(prev => Math.max(prev - 1, 1))}
-                    style={{
-                      background: userPage === 1 ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                      color: userPage === 1 ? 'rgba(255,255,255,0.2)' : 'var(--text-main)',
-                      border: '1px solid var(--card-border)',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      cursor: userPage === 1 ? 'not-allowed' : 'pointer',
-                      fontSize: '0.75rem'
-                    }}
+                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
                   >
                     Previous
                   </button>
                   <button
+                    className="btn-pagination"
                     disabled={userPage === totalUserPages}
                     onClick={() => setUserPage(prev => Math.min(prev + 1, totalUserPages))}
-                    style={{
-                      background: userPage === totalUserPages ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                      color: userPage === totalUserPages ? 'rgba(255,255,255,0.2)' : 'var(--text-main)',
-                      border: '1px solid var(--card-border)',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      cursor: userPage === totalUserPages ? 'not-allowed' : 'pointer',
-                      fontSize: '0.75rem'
-                    }}
+                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
                   >
                     Next
                   </button>
@@ -506,7 +493,8 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
                 </select>
                 <button 
                   onClick={() => setTagSortOrder(tagSortOrder === 'asc' ? 'desc' : 'asc')}
-                  style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem' }}
                 >
                   {tagSortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
                 </button>
@@ -615,32 +603,18 @@ const AdminPanel = ({ apiUrl, token, user, showNotification }) => {
               </span>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
+                  className="btn-pagination"
                   disabled={tagPage === 1}
                   onClick={() => setTagPage(prev => Math.max(prev - 1, 1))}
-                  style={{
-                    background: tagPage === 1 ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                    color: tagPage === 1 ? 'rgba(255,255,255,0.2)' : 'var(--text-main)',
-                    border: '1px solid var(--card-border)',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    cursor: tagPage === 1 ? 'not-allowed' : 'pointer',
-                    fontSize: '0.75rem'
-                  }}
+                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
                 >
                   Previous
                 </button>
                 <button
+                  className="btn-pagination"
                   disabled={tagPage === totalTagPages}
                   onClick={() => setTagPage(prev => Math.min(prev + 1, totalTagPages))}
-                  style={{
-                    background: tagPage === totalTagPages ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                    color: tagPage === totalTagPages ? 'rgba(255,255,255,0.2)' : 'var(--text-main)',
-                    border: '1px solid var(--card-border)',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    cursor: tagPage === totalTagPages ? 'not-allowed' : 'pointer',
-                    fontSize: '0.75rem'
-                  }}
+                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
                 >
                   Next
                 </button>

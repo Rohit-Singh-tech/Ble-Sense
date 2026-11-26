@@ -48,10 +48,12 @@ const Overview = ({
       setModalOpen(true);
 
       await downloadCsvExport({
+        appId: selectedAppId !== 'All' ? selectedAppId : undefined,
         deviceId: selectedDeviceId !== 'All' ? selectedDeviceId : undefined,
+        type: activeCategory !== 'All' ? activeCategory : undefined,
         startTime: startTime ? new Date(startTime).toISOString() : undefined,
         endTime: endTime ? new Date(endTime).toISOString() : undefined,
-        exportType: 'packets',
+        exportType: 'sensor_packets',
         sortOrder: sortOrder
       });
       setModalDone(true);
@@ -134,8 +136,8 @@ const Overview = ({
                 <div className="overview-controls-group">
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sort:</span>
-                    <select 
-                      value={sortField} 
+                    <select
+                      value={sortField}
                       onChange={(e) => setSortField(e.target.value)}
                       style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem' }}
                     >
@@ -143,7 +145,7 @@ const Overview = ({
                       <option value="type">Sensor Type</option>
                       <option value="deviceId">Device ID</option>
                     </select>
-                    <button 
+                    <button
                       onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                       style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
                     >
@@ -152,8 +154,8 @@ const Overview = ({
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Page:</span>
-                    <select 
-                      value={itemsPerPage} 
+                    <select
+                      value={itemsPerPage}
                       onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
                       style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none' }}
                     >
@@ -189,8 +191,8 @@ const Overview = ({
                 {/* Datetime start range picker */}
                 <div className="filter-input-wrap">
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Start:</span>
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
                     style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: theme === 'light' ? 'light' : 'dark', width: '100%' }}
@@ -200,8 +202,8 @@ const Overview = ({
                 {/* Datetime end range picker */}
                 <div className="filter-input-wrap">
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>End:</span>
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                     style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: theme === 'light' ? 'light' : 'dark', width: '100%' }}
@@ -253,7 +255,7 @@ const Overview = ({
                 </div>
               </div>
             </div>
-            
+
             <div className="table-container">
               <table className="custom-table">
                 <thead>
@@ -332,7 +334,7 @@ const Overview = ({
       )}
 
       {/* Export Progress Animation Modal */}
-      <ExportProgressModal 
+      <ExportProgressModal
         isOpen={modalOpen}
         totalCount={totalRecords}
         exportType="packets"
