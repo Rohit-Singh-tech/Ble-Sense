@@ -37,6 +37,7 @@ function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [apiUrl, setApiUrl] = useState('https://ble-sense-rqnu.onrender.com');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(localStorage.getItem('sidebar_collapsed') === 'true');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const toggleSidebar = () => {
     const nextState = !sidebarCollapsed;
@@ -153,6 +154,7 @@ function App() {
     if (mode === 'datalogger') mappedHash = 'inspector';
     if (mode === 'export') mappedHash = 'export';
     window.location.hash = '#' + mappedHash;
+    setMobileMenuOpen(false);
   };
 
   // Set Theme Class on Body
@@ -522,11 +524,11 @@ function App() {
         ) : (
           <div className="auth-card glassmorphism">
             <div className="auth-logo">
-              <div className="logo-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                  <path d="M6 3h12M18 3v3c0 2.2-1.8 4-4 4h-4c-2.2 0-4-1.8-4-4V3M5.5 21h13M8.5 10.5L3 21h18l-5.5-10.5" />
-                </svg>
-              </div>
+              <img 
+                src="annam_logo.png" 
+                alt="Annam Logo" 
+                className="auth-brand-logo"
+              />
               <h2>BLE Sensor</h2>
             </div>
             
@@ -591,6 +593,8 @@ function App() {
           onLogout={handleLogout} 
           isCollapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
+          mobileOpen={mobileMenuOpen}
+          onCloseMobile={() => setMobileMenuOpen(false)}
         />
 
         {/* Main Content Area */}
@@ -607,6 +611,7 @@ function App() {
             totalRecords={overviewTotal}
             queueTotal={queueTotal}
             inspectorTotal={inspectorTotal}
+            onToggleMobile={() => setMobileMenuOpen(prev => !prev)}
           />
 
           {/* Conditional Page View Router */}

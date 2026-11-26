@@ -207,9 +207,9 @@ const DataLoggerViewer = ({
   const activeBovine = activeDlPacket ? resolveBovineTag(activeDlPacket.displayData?.deviceId) : null;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px', alignItems: 'stretch' }}>
+    <div className="datalogger-grid-layout">
       {/* Left Column: Master List of Log Entries */}
-      <div className="glassmorphism" style={{ padding: '1.5rem', maxHeight: '78vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <div className="glassmorphism datalogger-sidebar-pane" style={{ padding: '1.5rem', maxHeight: '78vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div>
           <h4 style={{ marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
             DataLogger Logs ({totalRecords})

@@ -59,40 +59,79 @@ const LogOutIcon = () => (
   </svg>
 );
 
-const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle }) => {
+const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle, mobileOpen, onCloseMobile }) => {
+  const handleNavClick = (mode) => {
+    setViewMode(mode);
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const handleLogoutClick = () => {
+    if (onCloseMobile) onCloseMobile();
+    onLogout();
+  };
+
   return (
-    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-      <div className="sidebar-header" style={{ display: 'flex', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', marginBottom: '2.25rem' }}>
-        {!isCollapsed && (
-          <div className="sidebar-logo" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img
-              src="annam.png"
-              alt="IIT Ropar Annam.Ai"
-              style={{ width: '170px', height: 'auto', objectFit: 'contain', display: 'block' }}
-            />
+    <>
+      {/* Mobile Drawer Overlay Backdrop */}
+      <div 
+        className={`mobile-overlay ${mobileOpen ? 'active' : ''}`}
+        onClick={onCloseMobile}
+        aria-hidden="true"
+      />
+
+      <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-header" style={{ display: 'flex', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', marginBottom: '2.25rem' }}>
+          {!isCollapsed ? (
+            <div className="sidebar-logo" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img
+                src="annam.png"
+                alt="IIT Ropar Annam.Ai"
+                style={{ width: '160px', height: 'auto', objectFit: 'contain', display: 'block' }}
+              />
+            </div>
+          ) : (
+            <div className="sidebar-logo-collapsed" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src="annam_logo.png"
+                alt="Annam Logo"
+                style={{ width: '38px', height: '38px', objectFit: 'contain', display: 'block', borderRadius: '50%' }}
+              />
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button 
+              onClick={onToggle} 
+              className="btn-sidebar-toggle desktop-toggle-btn"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--card-border)',
+                borderRadius: '8px',
+                color: 'var(--text-main)',
+                padding: '6px 10px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {isCollapsed ? '»' : '«'}
+            </button>
+
+            {/* Mobile Close Button */}
+            <button
+              onClick={onCloseMobile}
+              className="btn-sidebar-close mobile-close-btn"
+              title="Close Menu"
+              aria-label="Close Navigation"
+            >
+              ✕
+            </button>
           </div>
-        )}
-        <button 
-          onClick={onToggle} 
-          className="btn-sidebar-toggle"
-          style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid var(--card-border)',
-            borderRadius: '8px',
-            color: 'var(--text-main)',
-            padding: '6px 10px',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s'
-          }}
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          {isCollapsed ? '»' : '«'}
-        </button>
-      </div>
+        </div>
 
       {/* {user && (
         <div className="sidebar-profile" style={{ padding: isCollapsed ? '0' : '14px', justifyContent: isCollapsed ? 'center' : 'flex-start' }} title={`${user.username} (${user.is_superuser ? 'Administrator' : 'Operator'})`}>
@@ -110,69 +149,70 @@ const Sidebar = ({ viewMode, setViewMode, user, onLogout, isCollapsed, onToggle 
       <nav className="sidebar-nav">
         <div
           className={`nav-item ${viewMode === 'overview' ? 'active' : ''}`}
-          onClick={() => setViewMode('overview')}
+          onClick={() => handleNavClick('overview')}
           title="Overview"
         >
           <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><GridIcon /></span>
-          {!isCollapsed && <span className="nav-text">Overview</span>}
+          {(!isCollapsed || mobileOpen) && <span className="nav-text">Overview</span>}
         </div>
         <div
           className={`nav-item ${viewMode === 'graph' ? 'active' : ''}`}
-          onClick={() => setViewMode('graph')}
+          onClick={() => handleNavClick('graph')}
           title="Analytics"
         >
           <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><ActivityIcon /></span>
-          {!isCollapsed && <span className="nav-text">Analytics</span>}
+          {(!isCollapsed || mobileOpen) && <span className="nav-text">Analytics</span>}
         </div>
         <div
           className={`nav-item ${viewMode === 'queue' ? 'active' : ''}`}
-          onClick={() => setViewMode('queue')}
+          onClick={() => handleNavClick('queue')}
           title="Queue"
         >
           <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><QueueIcon /></span>
-          {!isCollapsed && <span className="nav-text">Queue</span>}
+          {(!isCollapsed || mobileOpen) && <span className="nav-text">Queue</span>}
         </div>
         <div
           className={`nav-item ${viewMode === 'datalogger' ? 'active' : ''}`}
-          onClick={() => setViewMode('datalogger')}
+          onClick={() => handleNavClick('datalogger')}
           title="Inspector"
         >
           <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><SearchIcon /></span>
-          {!isCollapsed && <span className="nav-text">Inspector</span>}
+          {(!isCollapsed || mobileOpen) && <span className="nav-text">Inspector</span>}
         </div>
         <div
           className={`nav-item ${viewMode === 'export' ? 'active' : ''}`}
-          onClick={() => setViewMode('export')}
+          onClick={() => handleNavClick('export')}
           title="Data Export"
         >
           <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><DownloadNavIcon /></span>
-          {!isCollapsed && <span className="nav-text">Data Export</span>}
+          {(!isCollapsed || mobileOpen) && <span className="nav-text">Data Export</span>}
         </div>
         {user?.is_superuser && (
           <div
             className={`nav-item ${viewMode === 'admin' ? 'active' : ''}`}
-            onClick={() => setViewMode('admin')}
+            onClick={() => handleNavClick('admin')}
             title="Admin"
           >
             <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><ShieldIcon /></span>
-            {!isCollapsed && <span className="nav-text">Admin</span>}
+            {(!isCollapsed || mobileOpen) && <span className="nav-text">Admin</span>}
           </div>
         )}
         <div
           className={`nav-item ${viewMode === 'settings' ? 'active' : ''}`}
-          onClick={() => setViewMode('settings')}
+          onClick={() => handleNavClick('settings')}
           title="System Settings"
         >
           <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}><SettingsIcon /></span>
-          {!isCollapsed && <span className="nav-text">System Settings</span>}
+          {(!isCollapsed || mobileOpen) && <span className="nav-text">System Settings</span>}
         </div>
       </nav>
 
-      <button onClick={onLogout} className="btn-logout" title="Sign Out">
+      <button onClick={handleLogoutClick} className="btn-logout" title="Sign Out">
         <span style={{ display: 'flex', alignItems: 'center' }}><LogOutIcon /></span>
-        {!isCollapsed && <span>Sign Out</span>}
+        {(!isCollapsed || mobileOpen) && <span>Sign Out</span>}
       </button>
     </aside>
+  </>
   );
 };
 
