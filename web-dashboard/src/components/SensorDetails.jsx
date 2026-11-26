@@ -135,23 +135,23 @@ const SensorDetails = ({ sensor, onClose }) => {
 
             {/* XYZ Points Grid */}
             <div className="points-grid">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold' }}>XYZ SPATIAL COORDINATES</span>
-                <span style={{ fontFamily: 'monospace', color: 'var(--accent-primary)' }}>#{pointOffset + 1} – #{pointOffset + 80}</span>
+              <div className="points-header-bar">
+                <span className="points-title">XYZ SPATIAL COORDINATES</span>
+                <span className="points-range">#{pointOffset + 1} – #{pointOffset + 80}</span>
               </div>
-              <div className="grid-header" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr', gap: '10px', padding: '8px' }}>
-                <span>#</span>
-                <span style={{ color: '#FF6B6B' }}>X</span>
-                <span style={{ color: '#4ECDC4' }}>Y</span>
-                <span style={{ color: '#95E1D3', textAlign: 'right' }}>Z</span>
+              <div className="grid-header">
+                <span className="coord-col-idx">#</span>
+                <span className="coord-header coord-x">X</span>
+                <span className="coord-header coord-y">Y</span>
+                <span className="coord-header coord-z">Z</span>
               </div>
-              <div className="grid-scroll" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <div className="grid-scroll">
                 {chunk.points.map((pt, i) => (
-                  <div key={i} className="grid-row" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr', gap: '10px', padding: '4px 8px' }}>
-                    <span className="pt-idx" style={{ fontFamily: 'monospace' }}>{String(pointOffset + i + 1).padStart(3, '0')}</span>
-                    <span style={{ fontFamily: 'monospace', color: pt.x === '--' ? '#888' : '#FF6B6B' }}>{pt.x}</span>
-                    <span style={{ fontFamily: 'monospace', color: pt.y === '--' ? '#888' : '#4ECDC4' }}>{pt.y}</span>
-                    <span style={{ fontFamily: 'monospace', color: pt.z === '--' ? '#888' : '#95E1D3', textAlign: 'right' }}>{pt.z}</span>
+                  <div key={i} className="grid-row">
+                    <span className="pt-idx">{String(pointOffset + i + 1).padStart(3, '0')}</span>
+                    <span className={`coord-val coord-x ${pt.x === '--' ? 'coord-null' : ''}`}>{pt.x}</span>
+                    <span className={`coord-val coord-y ${pt.y === '--' ? 'coord-null' : ''}`}>{pt.y}</span>
+                    <span className={`coord-val coord-z ${pt.z === '--' ? 'coord-null' : ''}`}>{pt.z}</span>
                   </div>
                 ))}
               </div>
