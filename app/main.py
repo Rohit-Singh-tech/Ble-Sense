@@ -19,23 +19,35 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️ Table initialization notice: {e}")
 
-    # Ensure sensor_packets has no orphan duplicate uploads
+    # Global database deduplication: Ensure both tables match 1:1 with unique packets
     try:
         from sqlalchemy import text
         with SessionLocal() as db_cleanup:
+            # 1. Clean duplicate datalogger_headers across all apps
+            db_cleanup.execute(text("""
+                DELETE FROM datalogger_headers
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, packet_id_num ORDER BY id ASC) as rn
+                        FROM datalogger_headers
+                    ) t WHERE t.rn > 1
+                )
+            """))
+            # 2. Clean duplicate sensor_packets across all apps
             db_cleanup.execute(text("""
                 DELETE FROM sensor_packets
                 WHERE id IN (
                     SELECT id FROM (
                         SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, data->>'packetId' ORDER BY id ASC) as rn
                         FROM sensor_packets
-                        WHERE app_id = '2b64735d-ab0d-4ceb-8082-5159c51a7d06'
+                        WHERE data->>'packetId' IS NOT NULL
                     ) t WHERE t.rn > 1
                 )
             """))
             db_cleanup.commit()
+            print("✅ Database tables deduplicated and synchronized.")
     except Exception as e:
-        print(f"⚠️ Sensor packet deduplication check notice: {e}")
+        print(f"⚠️ Global database deduplication notice: {e}")
 
     # Seed default admin user
     db = SessionLocal()

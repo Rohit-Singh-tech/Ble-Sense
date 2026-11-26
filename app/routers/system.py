@@ -76,3 +76,50 @@ def get_system_health():
 @router.get("/ping")
 def ping():
     return {"ping": "pong", "time": datetime.now(timezone.utc).isoformat()}
+
+@router.get("/cleanup-database", status_code=status.HTTP_200_OK)
+@router.post("/cleanup-database", status_code=status.HTTP_200_OK)
+def cleanup_database_duplicates(db: Session = Depends(get_db)):
+    """
+    Remove duplicate datalogger_headers and duplicate sensor_packets across all apps.
+    Ensures 1:1 data parity and consistency.
+    """
+    try:
+        # 1. Clean datalogger_headers duplicates
+        db.execute(text("""
+            DELETE FROM datalogger_headers
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, packet_id_num ORDER BY id ASC) as rn
+                    FROM datalogger_headers
+                ) t WHERE t.rn > 1
+            )
+        """))
+        # 2. Clean sensor_packets duplicates
+        db.execute(text("""
+            DELETE FROM sensor_packets
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, data->>'packetId' ORDER BY id ASC) as rn
+                    FROM sensor_packets
+                    WHERE data->>'packetId' IS NOT NULL
+                ) t WHERE t.rn > 1
+            )
+        """))
+        db.commit()
+
+        s_cnt = db.execute(text("SELECT count(*) FROM sensor_packets")).scalar()
+        h_cnt = db.execute(text("SELECT count(*) FROM datalogger_headers")).scalar()
+
+        return {
+            "status": "success",
+            "message": "Database deduplication complete",
+            "sensor_packets": s_cnt,
+            "datalogger_headers": h_cnt
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Deduplication failed: {str(e)}"
+        )
