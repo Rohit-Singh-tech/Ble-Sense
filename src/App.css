@@ -222,44 +222,123 @@
 
 .light-theme .telemetry-meta-card {
   background: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
   color: #0f172a !important;
 }
 
 .light-theme .telemetry-meta-card h4 {
-  color: #475569 !important;
+  color: #334155 !important;
+  font-weight: 800 !important;
 }
 
+.light-theme .telemetry-meta-card strong {
+  color: #334155 !important;
+}
+
+/* DataLogger Points Grid - High-Contrast Light Theme */
 .light-theme .points-grid {
-  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.light-theme .points-title {
+  color: #1e293b !important;
+  font-weight: 800 !important;
+}
+
+.light-theme .points-range {
+  color: #0f766e !important;
+  font-weight: 700 !important;
 }
 
 .light-theme .grid-header {
   background: #f1f5f9 !important;
-  color: #475569 !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-bottom: 2px solid #94a3b8 !important;
+  color: #1e293b !important;
+}
+
+.light-theme .grid-scroll {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-top: none !important;
 }
 
 .light-theme .grid-row {
   border-bottom: 1px solid #f1f5f9 !important;
-  color: #1e293b !important;
+  color: #0f172a !important;
+  background: #ffffff;
 }
 
-.light-theme .grid-row:hover {
+.light-theme .grid-row:nth-child(even) {
   background-color: #f8fafc !important;
 }
 
+.light-theme .grid-row:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.light-theme .coord-col-idx,
 .light-theme .grid-row .pt-idx {
-  color: #64748b !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+/* Vivid, high-contrast XYZ headers in light mode */
+.light-theme .coord-header.coord-x {
+  color: #b91c1c !important;
+  font-weight: 900 !important;
+}
+
+.light-theme .coord-header.coord-y {
+  color: #0369a1 !important;
+  font-weight: 900 !important;
+}
+
+.light-theme .coord-header.coord-z {
+  color: #047857 !important;
+  font-weight: 900 !important;
+}
+
+/* Crisp, high-contrast XYZ coordinate values in light mode */
+.light-theme .coord-val.coord-x {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .coord-val.coord-y {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .coord-val.coord-z {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .coord-val.coord-null {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
 }
 
 .light-theme .telemetry-hex-card {
   background: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.light-theme .telemetry-hex-card span {
+  color: #1e293b !important;
+  font-weight: 800 !important;
 }
 
 .light-theme .hex-display {
-  color: #0d9488 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f766e !important;
+  font-weight: 600 !important;
+  padding: 10px !important;
+  border-radius: 6px !important;
 }
 
 .light-theme .part-pill {
@@ -1573,20 +1652,110 @@ select option {
 /* DataLogger Specific Points Grid */
 .points-grid {
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   margin-top: 0.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 12px;
+}
+
+.points-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+.points-title {
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.points-range {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--accent-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .grid-header {
-  background: rgba(255, 255, 255, 0.03);
-  font-size: 0.72rem;
+  display: grid;
+  grid-template-columns: 55px 1fr 1fr 1fr;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px 8px 0 0;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-secondary);
 }
 
 .grid-scroll {
+  max-height: 280px;
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: 55px 1fr 1fr 1fr;
+  gap: 10px;
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  align-items: center;
+  transition: background 0.15s ease;
+}
+
+.grid-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.coord-col-idx, .pt-idx {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.coord-header {
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.coord-val {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.coord-header.coord-z,
+.coord-val.coord-z {
+  text-align: right;
+}
+
+/* Dark mode default coordinate colors */
+.coord-x {
+  color: #ff6b6b;
+}
+
+.coord-y {
+  color: #38bdf8;
+}
+
+.coord-z {
+  color: #4ade80;
+}
+
+.coord-null {
+  color: #64748b !important;
 }
 
 /* Custom Scrollbar */
