@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import math
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
@@ -10,6 +11,7 @@ from sqlalchemy.sql import func
 from typing import List, Optional
 from app.database import get_db, SessionLocal
 from app.models.datalogger import RawPacket, DataLoggerHeader, DataLoggerPoint
+from app.models.packet import SensorPacket
 from app.schemas.datalogger import RawPacketOut, DataLoggerHeaderOut, PaginatedRawPackets, PaginatedDataLoggerHeaders
 from app.services.queue import packet_queue
 from app.services.tunnel_manager import tunnel_manager
@@ -225,22 +227,27 @@ async def get_processed_header(header_id: int, request: Request, db: Session = D
 @router.get("/export/csv")
 async def export_datalogger_csv(
     request: Request,
+    app_id: Optional[str] = Query(None, alias="appId"),
+    sensor_type: Optional[str] = Query(None, alias="type"),
     device_id: Optional[str] = Query(None, alias="deviceId"),
     start_time: Optional[datetime] = Query(None, alias="startTime"),
     end_time: Optional[datetime] = Query(None, alias="endTime"),
-    export_type: str = Query("packets", alias="exportType", description="export mode: 'packets' or 'samples'"),
+    search: Optional[str] = Query(None),
+    export_type: str = Query("packets", alias="exportType", description="export mode: 'packets', 'sensor_packets', or 'samples'"),
     sort_order: str = Query("desc", alias="sortOrder"),
     db: Session = Depends(get_db)
 ):
     """
-    Export DataLogger telemetry matching filters as a streaming CSV file.
+    Export sensor packets or DataLogger telemetry matching filters as a streaming CSV file.
+    exportType='sensor_packets': 1 row per raw BLE sensor packet (Overview feed).
     exportType='packets': 1 row per packet header (metadata, timestamps, sequence num, sample count).
     exportType='samples': 1 row per 3D XYZ spatial sample.
     Seamlessly proxies to the local PC via Cloudflare tunnel if primary cloud database is disconnected.
     """
     timestamp_label = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     dev_label = device_id if (device_id and device_id != 'All') else "all_devices"
-    filename = f"datalogger_{export_type}_{dev_label}_{timestamp_label}.csv"
+    prefix = "sensor_packets" if export_type == "sensor_packets" else f"datalogger_{export_type}"
+    filename = f"{prefix}_{dev_label}_{timestamp_label}.csv"
 
     # Failover Check: Test if primary DB is reachable. If not, proxy stream from local PC tunnel
     db_connected = True
@@ -274,25 +281,113 @@ async def export_datalogger_csv(
         try:
             output = io.StringIO()
             writer = csv.writer(output)
-
-            query = db_stream.query(DataLoggerHeader)
-            
-            if device_id and device_id != 'All':
-                query = query.filter(DataLoggerHeader.device_id == device_id)
-                
-            if start_time:
-                query = query.filter(DataLoggerHeader.timestamp >= start_time)
-            if end_time:
-                query = query.filter(DataLoggerHeader.timestamp <= end_time)
-                
-            if sort_order == 'asc':
-                query = query.order_by(DataLoggerHeader.timestamp.asc())
-            else:
-                query = query.order_by(DataLoggerHeader.timestamp.desc())
-
             BATCH_SIZE = 100
 
-            if export_type == "samples":
+            if export_type == "sensor_packets":
+                writer.writerow([
+                    "Packet_ID",
+                    "Timestamp_UTC",
+                    "App_ID",
+                    "Sensor_Type",
+                    "Device_ID",
+                    "Packet_Sequence_Num",
+                    "Total_Packets",
+                    "Points_Count",
+                    "Raw_Hex_Data",
+                    "Telemetry_Data"
+                ])
+                output.seek(0)
+                yield output.read()
+                output.truncate(0)
+                output.seek(0)
+
+                sp_query = db_stream.query(SensorPacket)
+                if app_id and app_id != 'All':
+                    sp_query = sp_query.filter(SensorPacket.app_id == app_id)
+                if sensor_type and sensor_type != 'All':
+                    if sensor_type == 'DataLogger':
+                        sp_query = sp_query.filter(
+                            (SensorPacket.data['type'].as_string() == 'DataLogger') |
+                            (SensorPacket.data['data']['type'].as_string() == 'DataLogger') |
+                            (SensorPacket.data['deviceId'].is_not(None)) |
+                            (SensorPacket.data['data']['deviceId'].is_not(None))
+                        )
+                    else:
+                        sp_query = sp_query.filter(
+                            (SensorPacket.data['type'].as_string() == sensor_type) |
+                            (SensorPacket.data['data']['type'].as_string() == sensor_type)
+                        )
+                if device_id and device_id != 'All':
+                    sp_query = sp_query.filter(
+                        (SensorPacket.data['deviceId'].as_string() == str(device_id)) |
+                        (SensorPacket.data['data']['deviceId'].as_string() == str(device_id))
+                    )
+                if start_time:
+                    sp_query = sp_query.filter(SensorPacket.timestamp >= start_time)
+                if end_time:
+                    sp_query = sp_query.filter(SensorPacket.timestamp <= end_time)
+                if search:
+                    s_term = f"%{search.lower()}%"
+                    sp_query = sp_query.filter(
+                        (func.lower(SensorPacket.app_id).like(s_term)) |
+                        (func.lower(SensorPacket.data['deviceId'].as_string()).like(s_term)) |
+                        (func.lower(SensorPacket.data['data']['deviceId'].as_string()).like(s_term))
+                    )
+                if sort_order == 'asc':
+                    sp_query = sp_query.order_by(SensorPacket.timestamp.asc())
+                else:
+                    sp_query = sp_query.order_by(SensorPacket.timestamp.desc())
+
+                total_sp = sp_query.count()
+                offset = 0
+                while offset < total_sp:
+                    packets_chunk = sp_query.offset(offset).limit(BATCH_SIZE).all()
+                    for sp in packets_chunk:
+                        data_dict = sp.data if isinstance(sp.data, dict) else {}
+                        inner = data_dict.get("data", data_dict) if isinstance(data_dict, dict) else {}
+                        
+                        dev_id = str(data_dict.get("deviceId") or inner.get("deviceId") or "")
+                        stype = str(data_dict.get("type") or inner.get("type") or "Unknown")
+                        if stype == "Unknown":
+                            if inner.get("temperature") and inner.get("humidity"):
+                                stype = "SHT40"
+                            elif inner.get("nitrogen") or inner.get("phosphorus"):
+                                stype = "Soil Sensor"
+                            elif inner.get("co2") or inner.get("pm25"):
+                                stype = "sen66"
+                            elif inner.get("lux"):
+                                stype = "Lux Sensor"
+                            elif inner.get("ammonia"):
+                                stype = "Ammonia Sensor"
+                            elif dev_id:
+                                stype = "DataLogger"
+
+                        pkt_seq = data_dict.get("packetId") or inner.get("packetId") or ""
+                        total_pkts = data_dict.get("totalPackets") or inner.get("totalPackets") or ""
+                        pts_count = data_dict.get("pointsCount") or inner.get("pointsCount") or ""
+                        raw_hex = data_dict.get("rawData") or inner.get("rawData") or ""
+                        ts_str = sp.timestamp.isoformat() if sp.timestamp else ""
+                        telemetry_str = json.dumps(inner) if inner else ""
+
+                        writer.writerow([
+                            sp.id,
+                            ts_str,
+                            sp.app_id,
+                            stype,
+                            dev_id,
+                            pkt_seq,
+                            total_pkts,
+                            pts_count,
+                            raw_hex,
+                            telemetry_str
+                        ])
+                        output.seek(0)
+                        yield output.read()
+                        output.truncate(0)
+                        output.seek(0)
+                    offset += BATCH_SIZE
+
+            elif export_type == "samples":
                 writer.writerow([
                     "Header_ID",
                     "Timestamp_UTC",
@@ -310,10 +405,22 @@ async def export_datalogger_csv(
                 output.truncate(0)
                 output.seek(0)
 
-                total_headers = query.count()
+                dl_query = db_stream.query(DataLoggerHeader)
+                if device_id and device_id != 'All':
+                    dl_query = dl_query.filter(DataLoggerHeader.device_id == str(device_id))
+                if start_time:
+                    dl_query = dl_query.filter(DataLoggerHeader.timestamp >= start_time)
+                if end_time:
+                    dl_query = dl_query.filter(DataLoggerHeader.timestamp <= end_time)
+                if sort_order == 'asc':
+                    dl_query = dl_query.order_by(DataLoggerHeader.timestamp.asc())
+                else:
+                    dl_query = dl_query.order_by(DataLoggerHeader.timestamp.desc())
+
+                total_headers = dl_query.count()
                 offset = 0
                 while offset < total_headers:
-                    headers = query.options(joinedload(DataLoggerHeader.points)).offset(offset).limit(BATCH_SIZE).all()
+                    headers = dl_query.options(joinedload(DataLoggerHeader.points)).offset(offset).limit(BATCH_SIZE).all()
                     for h in headers:
                         ts_str = h.timestamp.isoformat() if h.timestamp else ""
                         if h.points:
@@ -357,10 +464,22 @@ async def export_datalogger_csv(
                 output.truncate(0)
                 output.seek(0)
 
-                total_headers = query.count()
+                dl_query = db_stream.query(DataLoggerHeader)
+                if device_id and device_id != 'All':
+                    dl_query = dl_query.filter(DataLoggerHeader.device_id == str(device_id))
+                if start_time:
+                    dl_query = dl_query.filter(DataLoggerHeader.timestamp >= start_time)
+                if end_time:
+                    dl_query = dl_query.filter(DataLoggerHeader.timestamp <= end_time)
+                if sort_order == 'asc':
+                    dl_query = dl_query.order_by(DataLoggerHeader.timestamp.asc())
+                else:
+                    dl_query = dl_query.order_by(DataLoggerHeader.timestamp.desc())
+
+                total_headers = dl_query.count()
                 offset = 0
                 while offset < total_headers:
-                    headers = query.options(joinedload(DataLoggerHeader.points)).offset(offset).limit(BATCH_SIZE).all()
+                    headers = dl_query.options(joinedload(DataLoggerHeader.points)).offset(offset).limit(BATCH_SIZE).all()
                     for h in headers:
                         ts_str = h.timestamp.isoformat() if h.timestamp else ""
                         created_str = h.created_at.isoformat() if h.created_at else ""
