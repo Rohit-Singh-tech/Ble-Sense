@@ -4,7 +4,7 @@ import math
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import Text, cast
+from sqlalchemy import Text, cast, text
 from sqlalchemy.orm import Session, joinedload, load_only
 from sqlalchemy.sql import func
 from typing import List, Optional
@@ -223,7 +223,8 @@ async def get_processed_header(header_id: int, request: Request, db: Session = D
 
 
 @router.get("/export/csv")
-def export_datalogger_csv(
+async def export_datalogger_csv(
+    request: Request,
     device_id: Optional[str] = Query(None, alias="deviceId"),
     start_time: Optional[datetime] = Query(None, alias="startTime"),
     end_time: Optional[datetime] = Query(None, alias="endTime"),
@@ -235,10 +236,38 @@ def export_datalogger_csv(
     Export DataLogger telemetry matching filters as a streaming CSV file.
     exportType='packets': 1 row per packet header (metadata, timestamps, sequence num, sample count).
     exportType='samples': 1 row per 3D XYZ spatial sample.
+    Seamlessly proxies to the local PC via Cloudflare tunnel if primary cloud database is disconnected.
     """
     timestamp_label = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     dev_label = device_id if (device_id and device_id != 'All') else "all_devices"
     filename = f"datalogger_{export_type}_{dev_label}_{timestamp_label}.csv"
+
+    # Failover Check: Test if primary DB is reachable. If not, proxy stream from local PC tunnel
+    db_connected = True
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db_connected = False
+
+    if not db_connected and not tunnel_manager.is_local_instance and tunnel_manager.has_active_tunnel():
+        stream_res = await tunnel_manager.proxy_stream(request.url.path, dict(request.query_params))
+        if stream_res:
+            res, client = stream_res
+            async def stream_from_tunnel():
+                try:
+                    async for chunk in res.aiter_bytes():
+                        yield chunk
+                finally:
+                    await res.aclose()
+                    await client.aclose()
+            return StreamingResponse(
+                stream_from_tunnel(),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": res.headers.get("content-disposition", f'attachment; filename="{filename}"'),
+                    "Access-Control-Expose-Headers": "Content-Disposition"
+                }
+            )
 
     def generate_csv():
         db_stream = SessionLocal()
@@ -255,8 +284,6 @@ def export_datalogger_csv(
                 query = query.filter(DataLoggerHeader.timestamp >= start_time)
             if end_time:
                 query = query.filter(DataLoggerHeader.timestamp <= end_time)
-            else:
-                query = query.filter(DataLoggerHeader.timestamp <= func.now())
                 
             if sort_order == 'asc':
                 query = query.order_by(DataLoggerHeader.timestamp.asc())

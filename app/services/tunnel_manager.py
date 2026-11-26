@@ -88,6 +88,26 @@ class TunnelManager:
             logger.error(f"Failed to proxy GET to local tunnel ({target_url}): {e}")
             return None
 
+    async def proxy_stream(self, path: str, params: Optional[Dict[str, Any]] = None):
+        """Proxy a binary or streaming response (e.g. CSV export) from the local PC via Cloudflare tunnel."""
+        if not self.has_active_tunnel():
+            return None
+        target_url = f"{self.tunnel_url}{path}"
+        try:
+            client = httpx.AsyncClient(timeout=120.0)
+            req = client.build_request("GET", target_url, params=params)
+            res = await client.send(req, stream=True)
+            if res.is_success:
+                return res, client
+            else:
+                await res.aclose()
+                await client.aclose()
+                logger.warning(f"Tunnel stream proxy returned HTTP {res.status_code} for {target_url}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to proxy stream to local tunnel ({target_url}): {e}")
+            return None
+
     async def mirror_packet_to_local(self, payload: Any):
         """Asynchronously mirror an ingested packet to the local PC database."""
         if self.is_local_instance or not self.has_active_tunnel():
