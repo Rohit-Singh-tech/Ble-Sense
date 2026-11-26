@@ -1,19 +1,28 @@
 :root {
-  --bg-color: #121212;
-  --text-main: #ffffff;
-  --text-muted: #aaaaaa;
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --card-border: rgba(255, 255, 255, 0.1);
-  --accent: #8884d8;
+  --bg-color: #06060c;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --card-bg: rgba(18, 19, 30, 0.5);
+  --card-border: rgba(255, 255, 255, 0.05);
+  --accent: #3cd5cc;
+}
+
+.light-theme, [data-theme='light'] {
+  --bg-color: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --accent: #0d9488;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-color);
   color: var(--text-main);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }

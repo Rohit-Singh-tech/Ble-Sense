@@ -157,9 +157,16 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  // Set Theme Class on Body
+  // Set Theme Class on Body and HTML element
   useEffect(() => {
     localStorage.setItem('theme', theme);
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-theme');
+      document.body.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+      document.body.classList.remove('light-theme');
+    }
   }, [theme]);
 
 
@@ -617,6 +624,7 @@ function App() {
           {/* Conditional Page View Router */}
           {viewMode === 'overview' && (
             <Overview 
+              theme={theme}
               packets={packets}
               statsPackets={statsPackets}
               loadingPackets={loadingPackets}
