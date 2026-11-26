@@ -15,6 +15,14 @@ const MoonIcon = () => (
   </svg>
 );
 
+const HamburgerIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
 const Header = ({
   viewMode,
   packets,
@@ -26,29 +34,45 @@ const Header = ({
   uniqueAppIds,
   totalRecords,
   queueTotal,
-  inspectorTotal
+  inspectorTotal,
+  onToggleMobile
 }) => {
   return (
     <header className="top-bar">
-      <div>
-        <h1 className="view-title">
-          {viewMode === 'overview' && 'Cow LiveStock Logger'}
-          {viewMode === 'graph' && 'Analytics'}
-          {viewMode === 'queue' && 'Queue Monitor'}
-          {viewMode === 'datalogger' && 'Log Inspector'}
-          {viewMode === 'export' && 'Data Export Center'}
-          {viewMode === 'admin' && 'Access Controls'}
-          {viewMode === 'settings' && 'Settings'}
-        </h1>
-        <p className="view-subtitle">
-          {viewMode === 'overview' && `${(totalRecords ?? packets.length).toLocaleString()} records logged`}
-          {viewMode === 'graph' && `Live telemetry stream`}
-          {viewMode === 'queue' && `${(queueTotal ?? rawPackets.length).toLocaleString()} enqueued packets`}
-          {viewMode === 'datalogger' && `${(inspectorTotal ?? packets.filter(p => p.type === 'DataLogger').length).toLocaleString()} parsed logs`}
-          {viewMode === 'export' && `Export BLE telemetry & spatial logs as CSV`}
-          {viewMode === 'admin' && `Manage user privileges`}
-          {viewMode === 'settings' && `API configuration`}
-        </p>
+      <div className="top-bar-left">
+        <button
+          onClick={onToggleMobile}
+          className="btn-mobile-menu"
+          title="Toggle Navigation Menu"
+          aria-label="Open Navigation"
+        >
+          <HamburgerIcon />
+        </button>
+
+        <div className="mobile-brand-pill">
+          <img src="annam_logo.png" alt="Annam Logo" className="mobile-header-logo" />
+        </div>
+
+        <div className="top-bar-titles">
+          <h1 className="view-title">
+            {viewMode === 'overview' && 'Cow LiveStock Logger'}
+            {viewMode === 'graph' && 'Analytics'}
+            {viewMode === 'queue' && 'Queue Monitor'}
+            {viewMode === 'datalogger' && 'Log Inspector'}
+            {viewMode === 'export' && 'Data Export Center'}
+            {viewMode === 'admin' && 'Access Controls'}
+            {viewMode === 'settings' && 'Settings'}
+          </h1>
+          <p className="view-subtitle">
+            {viewMode === 'overview' && `${(totalRecords ?? packets.length).toLocaleString()} records logged`}
+            {viewMode === 'graph' && `Live telemetry stream`}
+            {viewMode === 'queue' && `${(queueTotal ?? rawPackets.length).toLocaleString()} enqueued packets`}
+            {viewMode === 'datalogger' && `${(inspectorTotal ?? packets.filter(p => p.type === 'DataLogger').length).toLocaleString()} parsed logs`}
+            {viewMode === 'export' && `Export BLE telemetry & spatial logs as CSV`}
+            {viewMode === 'admin' && `Manage user privileges`}
+            {viewMode === 'settings' && `API configuration`}
+          </p>
+        </div>
       </div>
       
       <div className="top-bar-actions">

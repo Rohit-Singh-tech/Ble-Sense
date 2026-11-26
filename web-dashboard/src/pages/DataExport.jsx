@@ -119,7 +119,7 @@ const DataExport = ({ deviceIdsList = [], tagRegistry = {}, showNotification }) 
 
   return (
     <div className="data-export-container" style={{ padding: '1rem 0' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         
         {/* Filter Configuration Card */}
         <div className="glassmorphism" style={{ padding: '1.75rem', borderRadius: '16px', border: '1px solid var(--card-border)' }}>
@@ -191,7 +191,7 @@ const DataExport = ({ deviceIdsList = [], tagRegistry = {}, showNotification }) 
           </div>
 
           {/* Datetime Pickers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '1.25rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 Start Time:

@@ -124,51 +124,55 @@ const Overview = ({
 
           {/* Recents Table Feed */}
           <section className="data-section">
-            <div className="section-header" style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'stretch' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="section-header overview-section-header">
+              <div className="overview-header-row">
                 <div>
                   <h3 style={{ margin: 0 }}>Telemetry Feed</h3>
                   <span className="helper-text">Live logs</span>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sort:</span>
-                  <select 
-                    value={sortField} 
-                    onChange={(e) => setSortField(e.target.value)}
-                    style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem' }}
-                  >
-                    <option value="timestamp">Timestamp</option>
-                    <option value="type">Sensor Type</option>
-                    <option value="deviceId">Device ID</option>
-                  </select>
-                  <button 
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
-                  >
-                    {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
-                  </button>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '10px' }}>Page Size:</span>
-                  <select 
-                    value={itemsPerPage} 
-                    onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
-                    style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none' }}
-                  >
-                    {[10, 20, 25, 50, 100].map(limit => (
-                      <option key={limit} value={limit}>{limit} records</option>
-                    ))}
-                  </select>
+                <div className="overview-controls-group">
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sort:</span>
+                    <select 
+                      value={sortField} 
+                      onChange={(e) => setSortField(e.target.value)}
+                      style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem' }}
+                    >
+                      <option value="timestamp">Timestamp</option>
+                      <option value="type">Sensor Type</option>
+                      <option value="deviceId">Device ID</option>
+                    </select>
+                    <button 
+                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                      style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Page:</span>
+                    <select 
+                      value={itemsPerPage} 
+                      onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
+                      style={{ background: 'var(--input-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none' }}
+                    >
+                      {[10, 20, 25, 50, 100].map(limit => (
+                        <option key={limit} value={limit}>{limit} records</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Filters Area */}
-              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', background: 'var(--input-bg)', padding: '12px 18px', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+              <div className="overview-filter-bar">
                 {/* Device ID select dropdown */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Device ID:</span>
+                <div className="filter-input-wrap">
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Device:</span>
                   <select
                     value={selectedDeviceId}
                     onChange={(e) => setSelectedDeviceId(e.target.value)}
-                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none' }}
+                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', width: '100%' }}
                   >
                     <option value="All">All Devices</option>
                     {deviceIdsList.map(id => {
@@ -182,24 +186,24 @@ const Overview = ({
                 </div>
 
                 {/* Datetime start range picker */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Start:</span>
+                <div className="filter-input-wrap">
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Start:</span>
                   <input 
                     type="datetime-local" 
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark' }}
+                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark', width: '100%' }}
                   />
                 </div>
 
                 {/* Datetime end range picker */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>End:</span>
+                <div className="filter-input-wrap">
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>End:</span>
                   <input 
                     type="datetime-local" 
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark' }}
+                    style={{ background: 'var(--bg-base)', color: 'var(--text-main)', border: '1px solid var(--card-border)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark', width: '100%' }}
                   />
                 </div>
 
