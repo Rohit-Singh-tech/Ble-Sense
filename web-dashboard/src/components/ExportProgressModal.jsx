@@ -73,7 +73,8 @@ const ExportProgressModal = ({ isOpen, totalCount = 0, exportType = 'packets', i
         border: '1px solid var(--card-border)',
         boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
         textAlign: 'center',
-        background: 'var(--card-bg)',
+        background: 'var(--card-glass, #ffffff)',
+        color: 'var(--text-main)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center'

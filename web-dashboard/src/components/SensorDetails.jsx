@@ -109,12 +109,10 @@ const SensorDetails = ({ sensor, onClose }) => {
                 <button
                   key={i}
                   onClick={() => setSelectedChunk(i)}
+                  className={`part-pill ${selectedChunk === i ? 'active' : ''}`}
                   style={{
                     padding: '8px 16px',
                     borderRadius: '6px',
-                    background: selectedChunk === i ? 'var(--accent-teal)' : 'var(--input-bg)',
-                    border: 'none',
-                    color: selectedChunk === i ? '#fff' : 'var(--text-main)',
                     cursor: 'pointer',
                     fontWeight: 'bold'
                   }}
@@ -125,7 +123,7 @@ const SensorDetails = ({ sensor, onClose }) => {
             </div>
 
             {/* Metadata */}
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px' }}>
+            <div className="telemetry-meta-card" style={{ padding: '15px', borderRadius: '8px' }}>
               <h4 style={{ marginTop: 0, color: 'var(--text-secondary)' }}>FRAME {chunk.chunkIndex + 1} TELEMETRY METADATA</h4>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div><strong style={{ color: 'var(--text-secondary)' }}>Packet ID:</strong> #{chunk.packetId}</div>
@@ -141,7 +139,7 @@ const SensorDetails = ({ sensor, onClose }) => {
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold' }}>XYZ SPATIAL COORDINATES</span>
                 <span style={{ fontFamily: 'monospace', color: 'var(--accent-primary)' }}>#{pointOffset + 1} – #{pointOffset + 80}</span>
               </div>
-              <div className="grid-header" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr', gap: '10px', padding: '8px', background: 'rgba(255,255,255,0.1)' }}>
+              <div className="grid-header" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr', gap: '10px', padding: '8px' }}>
                 <span>#</span>
                 <span style={{ color: '#FF6B6B' }}>X</span>
                 <span style={{ color: '#4ECDC4' }}>Y</span>
@@ -149,8 +147,8 @@ const SensorDetails = ({ sensor, onClose }) => {
               </div>
               <div className="grid-scroll" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {chunk.points.map((pt, i) => (
-                  <div key={i} className="grid-row" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr', gap: '10px', padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span className="pt-idx" style={{ fontFamily: 'monospace', color: '#888' }}>{String(pointOffset + i + 1).padStart(3, '0')}</span>
+                  <div key={i} className="grid-row" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 1fr', gap: '10px', padding: '4px 8px' }}>
+                    <span className="pt-idx" style={{ fontFamily: 'monospace' }}>{String(pointOffset + i + 1).padStart(3, '0')}</span>
                     <span style={{ fontFamily: 'monospace', color: pt.x === '--' ? '#888' : '#FF6B6B' }}>{pt.x}</span>
                     <span style={{ fontFamily: 'monospace', color: pt.y === '--' ? '#888' : '#4ECDC4' }}>{pt.y}</span>
                     <span style={{ fontFamily: 'monospace', color: pt.z === '--' ? '#888' : '#95E1D3', textAlign: 'right' }}>{pt.z}</span>
@@ -160,12 +158,12 @@ const SensorDetails = ({ sensor, onClose }) => {
             </div>
 
             {/* Hex Viewer */}
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '8px' }}>
+            <div className="telemetry-hex-card" style={{ padding: '15px', borderRadius: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold' }}>FRAME BINARY HEX (246 bytes)</span>
                 <button onClick={handleCopyChunk} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Copy Frame Hex</button>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', color: '#4ECDC4', maxHeight: '100px', overflowY: 'auto' }}>
+              <div className="hex-display" style={{ fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', maxHeight: '100px', overflowY: 'auto' }}>
                 {chunk.rawHex}
               </div>
             </div>
@@ -206,7 +204,7 @@ const SensorDetails = ({ sensor, onClose }) => {
               </div>
             </div>
             {thi !== null && (
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', borderLeft: `4px solid ${thiColor}` }}>
+              <div className="telemetry-meta-card" style={{ padding: '15px', borderRadius: '8px', borderLeft: `4px solid ${thiColor}` }}>
                 <h4 style={{ marginTop: 0, color: 'var(--text-secondary)' }}>CATTLE HEAT STRESS STATUS</h4>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -294,7 +292,7 @@ const SensorDetails = ({ sensor, onClose }) => {
                 <div className="sensor-value" style={{ color: 'var(--accent-primary)' }}>{data.ammonia} ppm</div>
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', borderLeft: `4px solid ${statusColor}` }}>
+            <div className="telemetry-meta-card" style={{ padding: '15px', borderRadius: '8px', borderLeft: `4px solid ${statusColor}` }}>
               <h4 style={{ marginTop: 0, color: 'var(--text-secondary)' }}>AIR QUALITY ASSESSMENT</h4>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>

@@ -184,6 +184,130 @@
   color: #0f172a;
 }
 
+/* Light Theme Modals & Dialogs */
+.light-theme .modal-overlay {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.light-theme .modal-content {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15) !important;
+  color: #0f172a !important;
+}
+
+.light-theme .modal-header {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.light-theme .modal-header h2 {
+  color: #0f172a !important;
+}
+
+.light-theme .modal-subtitle {
+  color: #64748b !important;
+}
+
+.light-theme .close-btn {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.light-theme .close-btn:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.light-theme .telemetry-meta-card {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.light-theme .telemetry-meta-card h4 {
+  color: #475569 !important;
+}
+
+.light-theme .points-grid {
+  border-color: #e2e8f0 !important;
+}
+
+.light-theme .grid-header {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.light-theme .grid-row {
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+.light-theme .grid-row:hover {
+  background-color: #f8fafc !important;
+}
+
+.light-theme .grid-row .pt-idx {
+  color: #64748b !important;
+}
+
+.light-theme .telemetry-hex-card {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.light-theme .hex-display {
+  color: #0d9488 !important;
+}
+
+.light-theme .part-pill {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.light-theme .part-pill.active {
+  background: #0d9488 !important;
+  color: #ffffff !important;
+  border-color: #0d9488 !important;
+}
+
+.light-theme .raw-json pre {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* Base Telemetry & Modal Component Classes */
+.telemetry-meta-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+}
+
+.telemetry-hex-card {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--card-border);
+}
+
+.hex-display {
+  color: #4ECDC4;
+}
+
+.part-pill {
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+}
+
+.part-pill.active {
+  background: var(--accent-teal);
+  color: #ffffff;
+  border-color: var(--accent-teal);
+}
+
 .btn-pagination {
   background: var(--input-bg);
   color: var(--text-main);
