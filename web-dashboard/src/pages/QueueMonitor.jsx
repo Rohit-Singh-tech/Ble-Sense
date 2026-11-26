@@ -226,34 +226,16 @@ const QueueMonitor = ({
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
+                className="btn-pagination"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                style={{
-                  background: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                  color: currentPage === 1 ? 'rgba(255,255,255,0.2)' : 'white',
-                  border: '1px solid var(--card-border)',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 600
-                }}
               >
                 Previous
               </button>
               <button
+                className="btn-pagination"
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                style={{
-                  background: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'var(--input-bg)',
-                  color: currentPage === totalPages ? 'rgba(255,255,255,0.2)' : 'white',
-                  border: '1px solid var(--card-border)',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 600
-                }}
               >
                 Next
               </button>

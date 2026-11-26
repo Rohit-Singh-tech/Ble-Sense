@@ -19,6 +19,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️ Table initialization notice: {e}")
 
+    # Ensure sensor_packets has no orphan duplicate uploads
+    try:
+        from sqlalchemy import text
+        with SessionLocal() as db_cleanup:
+            db_cleanup.execute(text("""
+                DELETE FROM sensor_packets
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, data->>'packetId' ORDER BY id ASC) as rn
+                        FROM sensor_packets
+                        WHERE app_id = '2b64735d-ab0d-4ceb-8082-5159c51a7d06'
+                    ) t WHERE t.rn > 1
+                )
+            """))
+            db_cleanup.commit()
+    except Exception as e:
+        print(f"⚠️ Sensor packet deduplication check notice: {e}")
+
     # Seed default admin user
     db = SessionLocal()
     try:
