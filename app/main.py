@@ -11,6 +11,18 @@ from app.services.queue import packet_worker
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Suppress harmless Windows ProactorEventLoop ConnectionResetError [WinError 10054]
+    try:
+        loop = asyncio.get_running_loop()
+        def handle_exception(loop, context):
+            exc = context.get("exception")
+            if isinstance(exc, ConnectionResetError) or "[WinError 10054]" in str(context.get("message", "")):
+                return
+            loop.default_exception_handler(context)
+        loop.set_exception_handler(handle_exception)
+    except Exception:
+        pass
+
     # Startup actions: Ensure tables exist
     try:
         from app.database import Base, engine
@@ -19,35 +31,46 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️ Table initialization notice: {e}")
 
-    # Global database deduplication: Ensure both tables match 1:1 with unique packets
+    # Safe database deduplication (Option A): Only purge exact retransmissions (identical hex data within 10 minutes)
+    # Never deletes next-day packets or packets with different sensor readings, even if packet IDs restart from 1.
     try:
         from sqlalchemy import text
         with SessionLocal() as db_cleanup:
-            # 1. Clean duplicate datalogger_headers across all apps
+            # 1. Clean duplicate datalogger_headers (identical raw_data within 10 minutes)
             db_cleanup.execute(text("""
                 DELETE FROM datalogger_headers
                 WHERE id IN (
-                    SELECT id FROM (
-                        SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, packet_id_num ORDER BY id ASC) as rn
-                        FROM datalogger_headers
-                    ) t WHERE t.rn > 1
+                    SELECT d2.id
+                    FROM datalogger_headers d1
+                    JOIN datalogger_headers d2 
+                      ON d1.app_id = d2.app_id 
+                     AND d1.packet_id_num = d2.packet_id_num 
+                     AND d1.raw_data = d2.raw_data
+                     AND d1.id < d2.id
+                     AND d2.created_at >= d1.created_at
+                     AND d2.created_at <= d1.created_at + INTERVAL '10 minutes'
                 )
             """))
-            # 2. Clean duplicate sensor_packets across all apps
+            # 2. Clean duplicate sensor_packets (identical rawData within 10 minutes)
             db_cleanup.execute(text("""
                 DELETE FROM sensor_packets
                 WHERE id IN (
-                    SELECT id FROM (
-                        SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, data->>'packetId' ORDER BY id ASC) as rn
-                        FROM sensor_packets
-                        WHERE data->>'packetId' IS NOT NULL
-                    ) t WHERE t.rn > 1
+                    SELECT s2.id
+                    FROM sensor_packets s1
+                    JOIN sensor_packets s2
+                      ON s1.app_id = s2.app_id
+                     AND s1.data->>'packetId' = s2.data->>'packetId'
+                     AND s1.data->>'rawData' = s2.data->>'rawData'
+                     AND s1.id < s2.id
+                     AND s2.timestamp >= s1.timestamp
+                     AND s2.timestamp <= s1.timestamp + INTERVAL '10 minutes'
+                    WHERE s1.data->>'packetId' IS NOT NULL
                 )
             """))
             db_cleanup.commit()
-            print("✅ Database tables deduplicated and synchronized.")
+            print("✅ Database tables deduplicated safely (Option A active).")
     except Exception as e:
-        print(f"⚠️ Global database deduplication notice: {e}")
+        print(f"⚠️ Safe deduplication check notice: {e}")
 
     # Seed default admin user
     db = SessionLocal()

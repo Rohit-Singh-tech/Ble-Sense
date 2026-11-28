@@ -81,29 +81,40 @@ def ping():
 @router.post("/cleanup-database", status_code=status.HTTP_200_OK)
 def cleanup_database_duplicates(db: Session = Depends(get_db)):
     """
-    Remove duplicate datalogger_headers and duplicate sensor_packets across all apps.
-    Ensures 1:1 data parity and consistency.
+    Remove duplicate datalogger_headers and duplicate sensor_packets across all apps safely (Option A).
+    Only purges retransmitted packets with identical raw hex data created within 10 minutes.
+    Never deletes next-day packets or packets with new sensor readings.
     """
     try:
-        # 1. Clean datalogger_headers duplicates
+        # 1. Clean datalogger_headers duplicates (identical raw_data within 10 minutes)
         db.execute(text("""
             DELETE FROM datalogger_headers
             WHERE id IN (
-                SELECT id FROM (
-                    SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, packet_id_num ORDER BY id ASC) as rn
-                    FROM datalogger_headers
-                ) t WHERE t.rn > 1
+                SELECT d2.id
+                FROM datalogger_headers d1
+                JOIN datalogger_headers d2 
+                  ON d1.app_id = d2.app_id 
+                 AND d1.packet_id_num = d2.packet_id_num 
+                 AND d1.raw_data = d2.raw_data
+                 AND d1.id < d2.id
+                 AND d2.created_at >= d1.created_at
+                 AND d2.created_at <= d1.created_at + INTERVAL '10 minutes'
             )
         """))
-        # 2. Clean sensor_packets duplicates
+        # 2. Clean sensor_packets duplicates (identical rawData within 10 minutes)
         db.execute(text("""
             DELETE FROM sensor_packets
             WHERE id IN (
-                SELECT id FROM (
-                    SELECT id, ROW_NUMBER() OVER (PARTITION BY app_id, data->>'packetId' ORDER BY id ASC) as rn
-                    FROM sensor_packets
-                    WHERE data->>'packetId' IS NOT NULL
-                ) t WHERE t.rn > 1
+                SELECT s2.id
+                FROM sensor_packets s1
+                JOIN sensor_packets s2
+                  ON s1.app_id = s2.app_id
+                 AND s1.data->>'packetId' = s2.data->>'packetId'
+                 AND s1.data->>'rawData' = s2.data->>'rawData'
+                 AND s1.id < s2.id
+                 AND s2.timestamp >= s1.timestamp
+                 AND s2.timestamp <= s1.timestamp + INTERVAL '10 minutes'
+                WHERE s1.data->>'packetId' IS NOT NULL
             )
         """))
         db.commit()
@@ -113,7 +124,7 @@ def cleanup_database_duplicates(db: Session = Depends(get_db)):
 
         return {
             "status": "success",
-            "message": "Database deduplication complete",
+            "message": "Safe database deduplication complete (Option A active)",
             "sensor_packets": s_cnt,
             "datalogger_headers": h_cnt
         }
